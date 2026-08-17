@@ -321,7 +321,8 @@
                 return row.split(re).map(val => val.replace(/^"|"$/g, '').trim());
             });
 
-            const dataRows = rows.slice(2).filter(r => r.length > 5 && r[1]);
+            // CRITICAL FIX: Dynamically filter to only player rows so the first player isn't skipped
+            const dataRows = rows.filter(r => r.length > 5 && r[1] && r[0] !== "Player ID" && !r[0].includes("Team:"));
             const roster = [];
             let lineupCount = 1;
 
