@@ -501,6 +501,19 @@
                     if (!player) return prev;
 
                     if (typeof targetId === 'number') {
+                        // Check if a player is already occupying this exact lineup slot
+                        const existingPlayer = newRoster.find(p => p.fieldSpot === 'Lineup' && p.battingOrder === targetId);
+                        
+                        if (existingPlayer && existingPlayer.id !== player.id) {
+                            // SWAP the players safely
+                            if (player.fieldSpot === 'Lineup') {
+                                existingPlayer.battingOrder = player.battingOrder;
+                            } else {
+                                existingPlayer.fieldSpot = 'Bench';
+                                existingPlayer.battingOrder = null;
+                            }
+                        }
+
                         player.battingOrder = targetId;
                         player.fieldSpot = 'Lineup';
                         player.is40Man = true;
@@ -562,6 +575,11 @@
                             p.rosterStatus = 'Minors';
                             showNotification(`${p.name} has 0 options left and was DFA'd / sent to Minors`, 'warning');
                         }
+                    } else if (action === 'promote') {
+                        p.fieldSpot = p.position === 'SP' ? 'Rotation' : (p.position === 'RP' ? 'Bullpen' : 'Bench');
+                        p.is40Man = true;
+                        p.rosterStatus = '26-Man Active';
+                        showNotification(`Promoted ${p.name} to MLB`, 'success');
                     } else if (action === 'il') {
                         p.fieldSpot = meta;
                         p.rosterStatus = meta;
@@ -606,9 +624,15 @@
                                         <button onClick={() => handlePlayerAction('role', 'Rotation')} className="bg-zinc-950 hover:bg-sky-600/20 border border-zinc-800 hover:border-sky-500 p-2 rounded text-xs font-bold text-zinc-300 transition-colors">Rotation</button>
                                         <button onClick={() => handlePlayerAction('role', 'Bullpen')} className="bg-zinc-950 hover:bg-sky-600/20 border border-zinc-800 hover:border-sky-500 p-2 rounded text-xs font-bold text-zinc-300 transition-colors">Bullpen</button>
                                         <button onClick={() => handlePlayerAction('role', 'Bench')} className="bg-zinc-950 hover:bg-sky-600/20 border border-zinc-800 hover:border-sky-500 p-2 rounded text-xs font-bold text-zinc-300 transition-colors">Bench</button>
-                                        <button onClick={() => handlePlayerAction('minors')} className="bg-zinc-950 hover:bg-amber-600/20 border border-zinc-800 hover:border-amber-500 p-2 rounded text-xs font-bold text-amber-300 transition-colors">
-                                            {activePlayerModal.optionsLeft > 0 ? `Option to Minors (${activePlayerModal.optionsLeft})` : 'DFA / Minors (0 opt)'}
-                                        </button>
+                                        {(activePlayerModal.fieldSpot === 'Minors' || activePlayerModal.fieldSpot === '40-Man Minor') ? (
+                                            <button onClick={() => handlePlayerAction('promote')} className="bg-zinc-950 hover:bg-emerald-600/20 border border-zinc-800 hover:border-emerald-500 p-2 rounded text-xs font-bold text-emerald-300 transition-colors">
+                                                Promote to MLB
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => handlePlayerAction('minors')} className="bg-zinc-950 hover:bg-amber-600/20 border border-zinc-800 hover:border-amber-500 p-2 rounded text-xs font-bold text-amber-300 transition-colors">
+                                                {activePlayerModal.optionsLeft > 0 ? `Option to Minors (${activePlayerModal.optionsLeft})` : 'DFA / Minors (0 opt)'}
+                                            </button>
+                                        )}
                                     </div>
 
                                     <div className="text-[10px] text-zinc-500 font-black uppercase tracking-wider mt-3 mb-1">Place on Injured List</div>
@@ -652,62 +676,114 @@
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 w-full">
-                        <div id="export-roster" className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 relative">
-                            
-                            <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg flex flex-col">
-                                <div className="text-[11px] text-sky-400 font-bold uppercase mb-2 px-1 flex justify-between items-center border-b border-zinc-800 pb-1">
-                                    <span>Starting Lineup (Batting Order 1-9)</span>
-                                    <span className="text-zinc-500">{lineupPlayers.length}/9</span>
-                                </div>
-                                <div className="flex-1 flex flex-col gap-1.5 w-full">
-                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(slotNum => {
-                                        const playerInSlot = lineupPlayers.find(p => p.battingOrder === slotNum);
-                                        return (
-                                            <div 
-                                                key={slotNum}
-                                                className="relative flex items-center bg-zinc-950/60 border border-zinc-800/80 rounded-lg min-h-[50px] overflow-hidden transition-all"
-                                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-sky-400', 'bg-sky-950/30'); }}
-                                                onDragLeave={(e) => { e.currentTarget.classList.remove('border-sky-400', 'bg-sky-950/30'); }}
-                                                onDrop={(e) => {
-                                                    e.preventDefault();
-                                                    e.currentTarget.classList.remove('border-sky-400', 'bg-sky-950/30');
-                                                    const playerId = e.dataTransfer.getData('playerId');
-                                                    const sourceTeamId = e.dataTransfer.getData('sourceTeamId');
-                                                    handleDrop(playerId, slotNum, sourceTeamId);
-                                                }}
-                                            >
-                                                <div className="w-8 bg-zinc-900 border-r border-zinc-800 flex items-center justify-center font-black text-xs text-sky-400 shrink-0 h-full">
-                                                    #{slotNum}
-                                                </div>
-                                                <div className="flex-1 p-1 min-w-0">
-                                                    {playerInSlot ? (
-                                                        <PlayerCard player={playerInSlot} teamInfo={team} onClick={setActivePlayerModal} />
-                                                    ) : (
-                                                        <div className="h-[72px] flex items-center justify-center text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
-                                                            Drop player here for spot #{slotNum}
+                    <div className="flex-1 overflow-y-auto w-full">
+                        <div id="export-roster" className="max-w-7xl mx-auto w-full relative pt-4 px-4 pb-2">
+                            {team.transactions && team.transactions.length > 0 && (
+                                <div className="bg-zinc-900 border border-zinc-800 shadow-xl rounded-xl p-3 mb-4">
+                                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-zinc-800/80">
+                                        <span className="text-[10px] text-sky-400 font-bold uppercase tracking-widest">Transaction Log</span>
+                                        <span className="text-[10px] text-zinc-500 font-bold">{team.transactions.length} Moves</span>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        {team.transactions.map((tx, i) => (
+                                            <div key={i} className="text-xs text-zinc-300 bg-zinc-950 border border-zinc-800/60 p-3 rounded-lg shadow-sm">
+                                                {tx.type === 'trade' ? (
+                                                    <div className="flex flex-col w-full">
+                                                        <div className="text-[9px] uppercase font-black text-sky-500 mb-2 border-b border-zinc-800 pb-1 tracking-widest text-center">Trade Executed</div>
+                                                        <div className="flex divide-x divide-zinc-800">
+                                                            <div className="flex-1 flex flex-col items-center px-2">
+                                                                <div className="flex items-center gap-1.5 mb-2">
+                                                                    <img src={`https://www.mlbstatic.com/team-logos/${tx.myTeamId}.svg`} className="w-5 h-5 drop-shadow" />
+                                                                    <span className="font-bold text-zinc-300">{tx.myTeam} Receives:</span>
+                                                                </div>
+                                                                <div className="flex flex-col w-full gap-1 items-center">
+                                                                    {tx.myGained.length > 0 ? tx.myGained.map((pName, idx) => (
+                                                                        <div key={idx} className="bg-zinc-900 border border-zinc-700/50 rounded px-2 py-1 text-[10px] text-emerald-400 font-semibold w-full text-center truncate">{pName}</div>
+                                                                    )) : <div className="text-[10px] text-zinc-500 italic">Cash / PTBNL</div>}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-1 flex flex-col items-center px-2">
+                                                                <div className="flex items-center gap-1.5 mb-2">
+                                                                    <img src={`https://www.mlbstatic.com/team-logos/${tx.partnerTeamId}.svg`} className="w-5 h-5 drop-shadow" />
+                                                                    <span className="font-bold text-zinc-300">{tx.partnerTeam} Receives:</span>
+                                                                </div>
+                                                                <div className="flex flex-col w-full gap-1 items-center">
+                                                                    {tx.partnerGained.length > 0 ? tx.partnerGained.map((pName, idx) => (
+                                                                        <div key={idx} className="bg-zinc-900 border border-zinc-700/50 rounded px-2 py-1 text-[10px] text-rose-400 font-semibold w-full text-center truncate">{pName}</div>
+                                                                    )) : <div className="text-[10px] text-zinc-500 italic">Cash / PTBNL</div>}
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    )}
-                                                </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                                        <span className="font-semibold">{tx.msg}</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                        );
-                                    })}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Starting Lineup with 1-9 Slots */}
+                                <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg flex flex-col">
+                                    <div className="text-[11px] text-sky-400 font-bold uppercase mb-2 px-1 flex justify-between items-center border-b border-zinc-800 pb-1">
+                                        <span>Starting Lineup (Batting Order 1-9)</span>
+                                        <span className="text-zinc-500">{lineupPlayers.length}/9</span>
+                                    </div>
+                                    <div className="flex-1 flex flex-col gap-1.5 w-full">
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(slotNum => {
+                                            const playerInSlot = lineupPlayers.find(p => p.battingOrder === slotNum);
+                                            return (
+                                                <div 
+                                                    key={slotNum}
+                                                    className="relative flex items-center bg-zinc-950/60 border border-zinc-800/80 rounded-lg min-h-[50px] overflow-hidden transition-all"
+                                                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-sky-400', 'bg-sky-950/30'); }}
+                                                    onDragLeave={(e) => { e.currentTarget.classList.remove('border-sky-400', 'bg-sky-950/30'); }}
+                                                    onDrop={(e) => {
+                                                        e.preventDefault();
+                                                        e.currentTarget.classList.remove('border-sky-400', 'bg-sky-950/30');
+                                                        const playerId = e.dataTransfer.getData('playerId');
+                                                        const sourceTeamId = e.dataTransfer.getData('sourceTeamId');
+                                                        handleDrop(playerId, slotNum, sourceTeamId);
+                                                    }}
+                                                >
+                                                    <div className="w-8 bg-zinc-900 border-r border-zinc-800 flex items-center justify-center font-black text-xs text-sky-400 shrink-0 h-full">
+                                                        #{slotNum}
+                                                    </div>
+                                                    <div className="flex-1 p-1 min-w-0">
+                                                        {playerInSlot ? (
+                                                            <PlayerCard player={playerInSlot} teamInfo={team} onClick={setActivePlayerModal} />
+                                                        ) : (
+                                                            <div className="h-[72px] flex items-center justify-center text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
+                                                                Drop player here for spot #{slotNum}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
 
-                            <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg">
-                                <DropZone id="Bench" label="Bench" players={bench} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} />
-                            </div>
-
-                            <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg">
-                                <DropZone id="Rotation" label="Starting Rotation" players={rotation} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} />
-                            </div>
-                            <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg">
-                                <DropZone id="Bullpen" label="Bullpen" players={bullpen} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} />
+                                <div className="flex flex-col gap-4">
+                                    <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg">
+                                        <DropZone id="Bench" label="Bench" players={bench} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} />
+                                    </div>
+                                    <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg">
+                                        <DropZone id="Rotation" label="Starting Rotation" players={rotation} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} />
+                                    </div>
+                                    <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg">
+                                        <DropZone id="Bullpen" label="Bullpen" players={bullpen} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 pb-20 mt-4">
+                        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 pb-20 px-4 mt-2">
                             <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg flex flex-col h-[600px]">
                                 <div className="flex justify-between items-center mb-3 pb-2 border-b border-zinc-800 gap-2">
                                     <span className="text-[11px] text-amber-400 font-bold uppercase tracking-widest shrink-0">Farm System</span>
@@ -793,7 +869,21 @@
                     acquiredVia: 'Trade'
                 }));
                 
-                setMyTeam({ ...myTeam, roster: [...myNewRoster, ...acquired] });
+                const tx = {
+                    type: 'trade',
+                    myTeam: myTeam.abbr,
+                    myTeamId: myTeam.id,
+                    partnerTeam: partnerTeam.abbr,
+                    partnerTeamId: partnerTeam.id,
+                    myGained: partnerTradeBlock.map(p => p.name),
+                    partnerGained: myTradeBlock.map(p => p.name)
+                };
+                
+                setMyTeam({ 
+                    ...myTeam, 
+                    roster: [...myNewRoster, ...acquired],
+                    transactions: [tx, ...(myTeam.transactions || [])]
+                });
                 setMyTradeBlock([]);
                 setPartnerTradeBlock([]);
                 setPartnerTeam(null);
@@ -909,18 +999,74 @@
             }, [selectedTeamId, activeSubTab, team, setupData]);
 
             const handleDecision = (playerId, teamId, action, aav = 0, years = 1) => {
-                if (typeof setMyTeam !== 'function') return;
+                if (teamId !== team.id && activeSubTab !== 'UFA') {
+                    showNotification("You can only manage free agency, arbitration, and option decisions for your own team.", "warning");
+                    return;
+                }
+
+                if (typeof setMyTeam !== 'function') {
+                    showNotification("Team state updater error. Please refresh.", "error");
+                    return;
+                }
 
                 setMyTeam(prev => {
                     if (!prev) return prev;
                     let roster = [...prev.roster];
+                    let txs = prev.transactions ? [...prev.transactions] : [];
                     
-                    // If UFA from another team, we have to inject them into our roster
-                    if (action === 'retain' && teamId !== team.id) {
+                    const idx = roster.findIndex(p => p.id === playerId);
+                    
+                    if (idx > -1) {
+                        if (action === 'retain') {
+                            const p = { ...roster[idx] };
+                            let newSpot = 'Bench';
+                            if (p.position === 'SP') newSpot = 'Rotation';
+                            else if (p.position === 'RP') newSpot = 'Bullpen';
+                            
+                            p.fieldSpot = newSpot;
+                            p.is40Man = true;
+                            p.rosterStatus = '26-Man Active';
+                            p.cbtValue = aav || p.cbtValue || 5000000;
+                            p.remaining = years;
+                            p.faStatus = 'Under Contract';
+                            
+                            let msg = "";
+                            if (p.expiryType.toLowerCase().includes('option')) {
+                                msg = `Exercised ${p.name} Option for ${formatMoney(aav)} x 1`;
+                            } else if (p.expiryType === 'Arb') {
+                                if (years === 1) {
+                                    msg = `Settled Arb with ${p.name} for ${formatMoney(aav)} x 1`;
+                                } else {
+                                    msg = `Extended ${p.name} ${formatMoney(aav * years)} x ${years}`;
+                                }
+                            } else {
+                                msg = `Re-signed ${p.name} ${formatMoney(aav * years)} x ${years}`;
+                            }
+
+                            p.expiryType = years > 1 ? 'UFA' : (p.expiryType || 'UFA');
+                            p.acquiredVia = 'Retained';
+                            p.cbtList = [aav, years > 1 ? aav : 0, years > 2 ? aav : 0, years > 3 ? aav : 0, years > 4 ? aav : 0];
+                            roster[idx] = p;
+                            
+                            txs.unshift({ type: 'sign', msg });
+                            showNotification(`Successfully signed/retained ${p.name}!`, 'success');
+                        } else {
+                            const p = { ...roster[idx] };
+                            p.expiryType = 'UFA';
+                            p.faStatus = 'UFA';
+                            roster[idx] = p;
+                            showNotification(`${p.name} declined/non-tendered and is now a Free Agent.`, 'warning');
+                        }
+                    } else if (action === 'retain') {
+                        // Signing external UFA
                         const targetPlayer = leagueFaData.find(p => p.id === playerId);
                         if (targetPlayer) {
                             const newPlayer = { ...targetPlayer };
-                            newPlayer.fieldSpot = newPlayer.position === 'SP' ? 'Rotation' : newPlayer.position === 'RP' ? 'Bullpen' : 'Bench';
+                            let newSpot = 'Bench';
+                            if (newPlayer.position === 'SP') newSpot = 'Rotation';
+                            else if (newPlayer.position === 'RP') newSpot = 'Bullpen';
+                            
+                            newPlayer.fieldSpot = newSpot;
                             newPlayer.is40Man = true;
                             newPlayer.rosterStatus = '26-Man Active';
                             newPlayer.cbtValue = aav;
@@ -930,46 +1076,21 @@
                             newPlayer.expiryType = years > 1 ? 'UFA' : 'UFA';
                             newPlayer.acquiredVia = 'FA';
                             newPlayer.cbtList = [aav, years > 1 ? aav : 0, years > 2 ? aav : 0, years > 3 ? aav : 0, years > 4 ? aav : 0];
+                            
                             roster.push(newPlayer);
+                            txs.unshift({ type: 'sign', msg: `Signed FA ${newPlayer.name} ${formatMoney(aav * years)} x ${years}` });
                             showNotification(`Successfully signed ${newPlayer.name}!`, 'success');
                         }
-                    } else if (action === 'retain') {
-                        // Own team
-                        const idx = roster.findIndex(p => p.id === playerId);
-                        if (idx > -1) {
-                            const p = { ...roster[idx] };
-                            p.fieldSpot = p.position === 'SP' ? 'Rotation' : p.position === 'RP' ? 'Bullpen' : 'Bench';
-                            p.is40Man = true;
-                            p.rosterStatus = '26-Man Active';
-                            p.cbtValue = aav;
-                            p.aav = aav;
-                            p.remaining = years;
-                            p.faStatus = 'Under Contract';
-                            p.expiryType = years > 1 ? 'UFA' : 'UFA';
-                            p.acquiredVia = 'Retained';
-                            p.cbtList = [aav, years > 1 ? aav : 0, years > 2 ? aav : 0, years > 3 ? aav : 0, years > 4 ? aav : 0];
-                            roster[idx] = p;
-                            showNotification(`Successfully retained ${p.name}!`, 'success');
-                        }
-                    } else if (action === 'release') {
-                        const idx = roster.findIndex(p => p.id === playerId);
-                        if (idx > -1) {
-                            const p = { ...roster[idx] };
-                            p.expiryType = 'UFA';
-                            p.faStatus = 'UFA';
-                            roster[idx] = p;
-                            showNotification(`${p.name} declined/non-tendered and is now a Free Agent.`, 'warning');
-                        }
                     }
-                    return { ...prev, roster };
+                    
+                    return { ...prev, roster, transactions: txs };
                 });
 
-                setLeagueFaData(prev => {
-                    if (action === 'release') {
-                        return prev.map(p => p.id === playerId ? { ...p, expiryType: 'UFA', faStatus: 'UFA' } : p);
-                    }
-                    return prev.filter(p => p.id !== playerId);
-                });
+                if (action !== 'release') {
+                    setLeagueFaData(prev => prev.filter(p => p.id !== playerId));
+                } else {
+                    setLeagueFaData(prev => prev.map(p => p.id === playerId ? { ...p, expiryType: 'UFA', faStatus: 'UFA' } : p));
+                }
                 setNegotiatingPlayer(null);
             };
 
