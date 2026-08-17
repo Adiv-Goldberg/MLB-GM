@@ -177,7 +177,7 @@
         const PlayerCard = ({ player, teamInfo, onClick }) => {
             return (
                 <div
-                    className={`draggable-card bg-zinc-900 border border-zinc-700/60 hover:border-sky-400 rounded-lg w-full aspect-[4/1] relative overflow-hidden group flex flex-col justify-center`}
+                    className={`draggable-card bg-zinc-900 border border-zinc-700/60 hover:border-sky-400 rounded-md w-full h-12 relative overflow-hidden group flex items-center px-2.5 gap-2`}
                     draggable="true"
                     onDragStart={(e) => {
                         e.dataTransfer.effectAllowed = 'move';
@@ -190,38 +190,34 @@
                         e.stopPropagation();
                         if (onClick) onClick(player);
                     }}
-                    style={{ borderLeft: `4px solid ${teamInfo.color}` }}
+                    style={{ borderLeft: `3px solid ${teamInfo.color}` }}
                 >
-                    <div className="card-content-wrapper absolute inset-0 flex items-center p-2 gap-2.5">
-                        <div className="absolute right-0 top-0 bottom-0 w-16 opacity-[0.03] flex items-center justify-end pr-1">
-                            <img src={`https://www.mlbstatic.com/team-logos/${teamInfo.id}.svg`} className="w-16 h-16 object-contain" />
-                        </div>
-
-                        <div className="relative shrink-0 flex items-center justify-center h-full aspect-square">
-                            <PlayerImage player={player} teamInfo={teamInfo} className="w-full h-full rounded-full border border-zinc-600 object-cover bg-zinc-800 shadow-inner" />
-                            <div className="absolute -bottom-1 -right-1 bg-zinc-950 border border-zinc-700 text-[9px] font-bold px-1 rounded shadow text-white z-10">
+                    <div className="card-content-wrapper absolute inset-0 flex items-center px-2.5 gap-2.5">
+                        <div className="relative shrink-0 flex items-center justify-center h-8 w-8">
+                            <PlayerImage player={player} teamInfo={teamInfo} className="w-8 h-8 rounded-full border border-zinc-600 object-cover bg-zinc-800 shadow-inner" />
+                            <div className="absolute -bottom-1 -right-1 bg-zinc-950 border border-zinc-700 text-[8px] font-bold px-0.5 rounded shadow text-white z-10">
                                 {player.position}
                             </div>
                         </div>
                         
-                        <div className="flex-1 min-w-0 flex flex-col justify-center h-full">
-                            <div className="font-bold text-zinc-100 truncate text-[12px] leading-tight group-hover:text-sky-300 transition-colors">
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                            <div className="font-bold text-zinc-100 truncate text-[11px] leading-tight group-hover:text-sky-300 transition-colors">
                                 {player.name}
                             </div>
                             
-                            <div className="flex gap-1 mt-1 items-center overflow-hidden h-4">
-                                {player.teamRank && <span className="text-[9px] bg-sky-900/50 text-sky-300 border border-sky-700 px-1 rounded font-bold shrink-0">ORG #{player.teamRank}</span>}
-                                {player.top100Rank && <span className="text-[9px] bg-amber-900/50 text-amber-300 border border-amber-700 px-1 rounded font-bold shrink-0">TOP 100 #{player.top100Rank}</span>}
-                                {player.injury && <span className="text-[9px] bg-red-900/50 text-red-300 border border-red-700 px-1 rounded font-bold shrink-0">{player.injury.replace('Injured ','')}</span>}
+                            <div className="flex gap-1 mt-0.5 items-center overflow-hidden h-3.5">
+                                {player.teamRank && <span className="text-[8px] bg-sky-900/50 text-sky-300 border border-sky-700 px-1 rounded font-bold shrink-0">ORG #{player.teamRank}</span>}
+                                {player.top100Rank && <span className="text-[8px] bg-amber-900/50 text-amber-300 border border-amber-700 px-1 rounded font-bold shrink-0">TOP 100 #{player.top100Rank}</span>}
+                                {player.injury && <span className="text-[8px] bg-red-900/50 text-red-300 border border-red-700 px-1 rounded font-bold shrink-0">{player.injury.replace('Injured ','')}</span>}
                             </div>
                         </div>
                     </div>
 
-                    <div className="card-content-wrapper absolute bottom-1 right-2 z-10 flex items-center gap-1">
-                        <span className="text-emerald-400 font-black text-xs drop-shadow-md">
+                    <div className="card-content-wrapper absolute bottom-1 right-2.5 z-10 flex items-center gap-1">
+                        <span className="text-emerald-400 font-black text-[11px] drop-shadow-md">
                             {formatMoney(player.cbtValue)}
                         </span>
-                        <span className="text-zinc-400 text-[10px] font-bold">
+                        <span className="text-zinc-400 text-[9px] font-bold">
                             • {player.remaining}y • {player.expiryType}
                         </span>
                     </div>
@@ -594,7 +590,7 @@
                                         return (
                                             <div 
                                                 key={slotNum}
-                                                className="relative flex items-center bg-zinc-950/60 border border-zinc-800/80 rounded-lg min-h-[50px] overflow-hidden transition-all"
+                                                className="relative flex items-center bg-zinc-950/60 border border-zinc-800/80 rounded-lg h-12 overflow-hidden transition-all"
                                                 onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-sky-400', 'bg-sky-950/30'); }}
                                                 onDragLeave={(e) => { e.currentTarget.classList.remove('border-sky-400', 'bg-sky-950/30'); }}
                                                 onDrop={(e) => {
