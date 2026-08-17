@@ -1,1 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLBGM - Advanced Roster Management</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+        
+        body { 
+            background: linear-gradient(135deg, #09090b 0%, #18181b 100%); 
+            color: #e2e8f0; 
+            font-family: 'Inter', sans-serif; 
+            margin: 0;
+            overflow-x: hidden;
+            font-size: 13px;
+        }
 
+        .draggable-card { 
+            cursor: grab; 
+            touch-action: none; 
+            transition: border-color 0.2s ease, transform 0.1s ease;
+        }
+        .draggable-card:active { 
+            cursor: grabbing; 
+            transform: scale(1.02);
+            z-index: 50;
+        }
+        .draggable-card.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+        .card-content-wrapper {
+            pointer-events: none;
+        }
+        
+        .drop-zone { 
+            border: 2px dashed rgba(161, 161, 170, 0.2); 
+            border-radius: 0.5rem; 
+            transition: all 0.2s ease; 
+        }
+        .drop-zone.active { 
+            border-color: #38bdf8; 
+            background-color: rgba(56, 189, 248, 0.08); 
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #09090b; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(56, 189, 248, 0.2);
+            border-top-color: #38bdf8;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+        const SHEET_ID = '1lYm3UsPwx4ff9tWNDucvEV0l-5f5NAcGV8nn4TOjRf4';
+
+        const TEAM_DB_INIT = [
+            { id: 110, name: "Baltimore Orioles", abbr: "BAL", color: '#df4601', secondary: '#000000' },
+            { id: 111, name: "Boston Red Sox", abbr: "BOS", color: '#bd3039', secondary: '#0c2340' },
+            { id: 147, name: "New York Yankees", abbr: "NYY", color: '#003087', secondary: '#e4002c' },
+            { id: 139, name: "Tampa Bay Rays", abbr: "TB", color: '#092c5c', secondary: '#8fbce6' },
+            { id: 141, name: "Toronto Blue Jays", abbr: "TOR", color: '#134a8e', secondary: '#1d2d5c' },
+            { id: 144, name: "Atlanta Braves", abbr: "ATL", color: '#ce1141', secondary: '#13274f' },
+            { id: 146, name: "Miami Marlins", abbr: "MIA", color: '#00a3e0', secondary: '#ef3340' },
+            { id: 121, name: "New York Mets", abbr: "NYM", color: '#ff5910', secondary: '#002d72' },
+            { id: 143, name: "Philadelphia Phillies", abbr: "PHI", color: '#e81828', secondary: '#002d72' },
+            { id: 120, name: "Washington Nationals", abbr: "WSH", color: '#ab0003', secondary: '#14225a' },
+            { id: 145, name: "Chicago White Sox", abbr: "CWS", color: '#27251f', secondary: '#c4ced4' },
+            { id: 114, name: "Cleveland Guardians", abbr: "CLE", color: '#e31937', secondary: '#002b5c' },
+            { id: 116, name: "Detroit Tigers", abbr: "DET", color: '#0c2340', secondary: '#fa4616' },
+            { id: 118, name: "Kansas City Royals", abbr: "KC", color: '#004687', secondary: '#bd9b60' },
+            { id: 142, name: "Minnesota Twins", abbr: "MIN", color: '#002b5c', secondary: '#d31145' },
+            { id: 112, name: "Chicago Cubs", abbr: "CHC", color: '#0e3386', secondary: '#cc3433' },
+            { id: 113, name: "Cincinnati Reds", abbr: "CIN", color: '#c6011f', secondary: '#000000' },
+            { id: 158, name: "Milwaukee Brewers", abbr: "MIL", color: '#12284b', secondary: '#ffc52f' },
+            { id: 134, name: "Pittsburgh Pirates", abbr: "PIT", color: '#fdb827', secondary: '#27251f' },
+            { id: 138, name: "St. Louis Cardinals", abbr: "STL", color: '#c41e3a', secondary: '#0c2340' },
+            { id: 117, name: "Houston Astros", abbr: "HOU", color: '#002d62', secondary: '#eb6e1f' },
+            { id: 108, name: "Los Angeles Angels", abbr: "LAA", color: '#003263', secondary: '#ba0021' },
+            { id: 133, name: "Oakland Athletics", abbr: "ATH", color: '#003831', secondary: '#efb21e' },
+            { id: 136, name: "Seattle Mariners", abbr: "SEA", color: '#0c2c56', secondary: '#005c5c' },
+            { id: 140, name: "Texas Rangers", abbr: "TEX", color: '#003278', secondary: '#c0111f' },
+            { id: 109, name: "Arizona Diamondbacks", abbr: "ARI", color: '#a71930', secondary: '#e3d4ad' },
+            { id: 115, name: "Colorado Rockies", abbr: "COL", color: '#33006f', secondary: '#c4ced4' },
+            { id: 119, name: "Los Angeles Dodgers", abbr: "LAD", color: '#005a9c', secondary: '#ef3e42' },
+            { id: 135, name: "San Diego Padres", abbr: "SD", color: '#2f241d', secondary: '#ffc425' },
+            { id: 137, name: "San Francisco Giants", abbr: "SF", color: '#fd5a1e', secondary: '#27251f' }
+        ];
+
+        const formatMoney = (amount) => {
+            if (!amount || isNaN(amount)) return "$0";
+            if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+            if (amount >= 1000) return `$${Math.round(amount / 1000)}k`;
+            return `$${Math.round(amount)}`;
+        };
+
+        const parseCurrencyString = (str) => {
+            if (!str) return 0;
+            const cleaned = str.toString().replace(/[^0-9.]/g, '');
+            if (!cleaned) return 0;
+            let val = parseFloat(cleaned);
+            if (val > 0 && val < 100) val = val * 1000000;
+            return val;
+        };
+
+        const useAutoScroll = () => {
+            useEffect(() => {
+                let scrollInterval = null;
+                const startScroll = (dy) => {
+                    if (!scrollInterval) scrollInterval = setInterval(() => window.scrollBy(0, dy), 16);
+                };
+                const stopScroll = () => {
+                    if (scrollInterval) { clearInterval(scrollInterval); scrollInterval = null; }
+                };
+                const handleDragOver = (e) => {
+                    const threshold = 80;
+                    if (e.clientY < threshold) startScroll(-15);
+                    else if (window.innerHeight - e.clientY < threshold) startScroll(15);
+                    else stopScroll();
+                };
+                document.addEventListener('dragover', handleDragOver);
+                document.addEventListener('dragend', stopScroll);
+                return () => {
+                    document.removeEventListener('dragover', handleDragOver);
+                    document.removeEventListener('dragend', stopScroll);
+                    stopScroll();
+                };
+            }, []);
+        };
+
+        const Toast = ({ notification }) => {
+            if (!notification) return null;
+            const bg = notification.type === 'error' ? 'bg-red-600' : notification.type === 'warning' ? 'bg-amber-600' : 'bg-sky-600';
+            return (
+                <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-xl z-[100] text-white font-bold animate-bounce ${bg}`}>
+                    {notification.msg}
+                </div>
+            );
+        };
+
+        const PlayerImage = ({ player, teamInfo, className }) => {
+            const [hasError, setHasError] = useState(false);
+            const mlbUrl = `https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${player.id}/headshot/silo/current`;
+            const fallbackUrl = `https://placehold.co/120x120/${teamInfo.color.replace('#','')}/${teamInfo.secondary.replace('#','')}?text=${player.initials}`;
+            
+            return (
+                <img 
+                    src={hasError || !player.id || player.id === "N/A" || player.id.startsWith("unk") ? fallbackUrl : mlbUrl} 
+                    onError={() => setHasError(true)}
+                    alt={player.name} 
+                    className={className} 
+                />
+            );
+        };
+
+        const PlayerCard = ({ player, teamInfo, onClick }) => {
+            return (
+                <div
+                    className={`draggable-card bg-zinc-900 border border-zinc-700/60 hover:border-sky-400 rounded-lg w-full aspect-[4/1] relative overflow-hidden group flex flex-col justify-center`}
+                    draggable="true"
+                    onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('playerId', player.id);
+                        e.dataTransfer.setData('sourceTeamId', teamInfo.id);
+                        setTimeout(() => e.target.classList.add('dragging'), 0);
+                    }}
+                    onDragEnd={(e) => e.target.classList.remove('dragging')}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (onClick) onClick(player);
+                    }}
+                    style={{ borderLeft: `4px solid ${teamInfo.color}` }}
+                >
+                    <div className="card-content-wrapper absolute inset-0 flex items-center p-2 gap-2.5">
+                        <div className="absolute right-0 top-0 bottom-0 w-16 opacity-[0.03] flex items-center justify-end pr-1">
+                            <img src={`https://www.mlbstatic.com/team-logos/${teamInfo.id}.svg`} className="w-16 h-16 object-contain" />
+                        </div>
+
+                        <div className="relative shrink-0 flex items-center justify-center h-full aspect-square">
+                            <PlayerImage player={player} teamInfo={teamInfo} className="w-full h-full rounded-full border border-zinc-600 object-cover bg-zinc-800 shadow-inner" />
+                            <div className="absolute -bottom-1 -right-1 bg-zinc-950 border border-zinc-700 text-[9px] font-bold px-1 rounded shadow text-white z-10">
+                                {player.position}
+                            </div>
+                        </div>
+                        
+                        <div className="flex-1 min-w-0 flex flex-col justify-center h-full">
+                            <div className="font-bold text-zinc-100 truncate text-[12px] leading-tight group-hover:text-sky-300 transition-colors">
+                                {player.name}
+                            </div>
+                            
+                            <div className="flex gap-1 mt-1 items-center overflow-hidden h-4">
+                                {player.teamRank && <span className="text-[9px] bg-sky-900/50 text-sky-300 border border-sky-700 px-1 rounded font-bold shrink-0">ORG #{player.teamRank}</span>}
+                                {player.top100Rank && <span className="text-[9px] bg-amber-900/50 text-amber-300 border border-amber-700 px-1 rounded font-bold shrink-0">TOP 100 #{player.top100Rank}</span>}
+                                {player.injury && <span className="text-[9px] bg-red-900/50 text-red-300 border border-red-700 px-1 rounded font-bold shrink-0">{player.injury.replace('Injured ','')}</span>}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="card-content-wrapper absolute bottom-1 right-2 z-10 flex items-center gap-1">
+                        <span className="text-emerald-400 font-black text-xs drop-shadow-md">
+                            {formatMoney(player.cbtValue)}
+                        </span>
+                        <span className="text-zinc-400 text-[10px] font-bold">
+                            • {player.remaining}y • {player.expiryType}
+                        </span>
+                    </div>
+                </div>
+            );
+        };
+
+        const DropZone = ({ id, label, players, onDrop, teamInfo, onPlayerClick, className="" }) => {
+            return (
+                <div
+                    className={`drop-zone bg-zinc-950/40 p-2 flex flex-col min-h-[80px] h-full ${className}`}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('active', 'border-sky-400', 'bg-sky-950/20');
+                        const playerId = e.dataTransfer.getData('playerId');
+                        const sourceTeamId = e.dataTransfer.getData('sourceTeamId');
+                        onDrop(playerId, id, sourceTeamId);
+                    }}
+                    onDragOver={(e) => { 
+                        e.preventDefault(); 
+                        e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDragEnter={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.add('active', 'border-sky-400', 'bg-sky-950/20');
+                    }}
+                    onDragLeave={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget)) {
+                            e.currentTarget.classList.remove('active', 'border-sky-400', 'bg-sky-950/20');
+                        }
+                    }}
+                >
+                    {label && (
+                        <div className="text-[11px] text-sky-400 font-bold uppercase mb-2 px-1 flex justify-between items-center border-b border-zinc-800 pb-1">
+                            <span>{label}</span>
+                            <span className="text-zinc-500">{players.length}</span>
+                        </div>
+                    )}
+                    <div className="flex-1 flex flex-col gap-1.5 w-full">
+                        {players.map(p => (
+                            <PlayerCard key={p.id} player={p} teamInfo={teamInfo} onClick={onPlayerClick} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const fetchTeamData = async (team, year, mode) => {
+            const sheetName = `${team.abbr} - ${team.name}`;
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+            
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("Fetch failed.");
+            const text = await res.text();
+            if (text.includes("html") || text.trim() === "") throw new Error("Sheet not found or empty.");
+
+            const rows = text.split('\n').map(row => {
+                const re = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+                return row.split(re).map(val => val.replace(/^"|"$/g, '').trim());
+            });
+
+            const dataRows = rows.slice(2).filter(r => r.length > 5 && r[1]);
+            const roster = [];
+            let lineupCount = 1;
+
+            dataRows.forEach((r, idx) => {
+                const rawId = r[0] || `unk-${idx}`;
+                const rawName = r[1] || "Unknown";
+                const initials = rawName.split(' ').map(w => w[0]).join('').substring(0, 2);
+                const age = parseInt(r[2]) || 25;
+                const pos = r[3] || "UT";
+                const level = r[4] || "Minors";
+                let status = r[5] || "Minors";
+                let injury = r[6] || "";
+                
+                const optionsLeft = (r[8] !== undefined && r[8] !== "" && !isNaN(parseInt(r[8]))) ? parseInt(r[8]) : 0;
+                
+                const aav = parseCurrencyString(r[9]);
+                const length = parseInt(r[10]) || 1;
+                const remaining = parseInt(r[11]) || 1;
+                const expiryType = r[12] || "UFA";
+                
+                const teamRank = r[13] && !isNaN(parseInt(r[13])) ? parseInt(r[13]) : null;
+                const top100Rank = r[14] && !isNaN(parseInt(r[14])) ? parseInt(r[14]) : null;
+                
+                const cbtList = [
+                    parseCurrencyString(r[15]), parseCurrencyString(r[16]),
+                    parseCurrencyString(r[17]), parseCurrencyString(r[18]),
+                    parseCurrencyString(r[19])
+                ];
+                
+                const cbtValue = cbtList[0] || aav || 0;
+                
+                if (mode !== 'tdl') {
+                    injury = "";
+                }
+
+                const is40Man = status === '40-Man' || status === '26-Man Active' || status.includes('60-day');
+                const isMajors = status === '26-Man Active' || injury.match(/60|15|10|7/) || (mode !== 'tdl' && is40Man);
+
+                let faStatus = 'Under Contract';
+                if (mode === 'offseason' && remaining <= 1 && !expiryType.includes('Pre-Arb') && !expiryType.includes('Minor')) {
+                    if (expiryType.toLowerCase().includes('option')) {
+                        faStatus = 'Option';
+                    } else if (expiryType.toLowerCase().includes('arb')) {
+                        faStatus = 'Arb';
+                    } else {
+                        faStatus = 'UFA';
+                    }
+                }
+
+                let fieldSpot = 'Minors';
+                let battingOrder = null;
+
+                if (faStatus !== 'Under Contract') {
+                    fieldSpot = 'Pending FA';
+                } else if (injury.includes('60')) {
+                    fieldSpot = 'IL60';
+                } else if (injury.includes('15') || injury.includes('10')) {
+                    fieldSpot = 'IL15';
+                } else if (injury.includes('7')) {
+                    fieldSpot = 'IL7';
+                } else if (isMajors) {
+                    if (pos === 'SP') fieldSpot = 'Rotation';
+                    else if (pos === 'RP') fieldSpot = 'Bullpen';
+                    else {
+                        if (lineupCount <= 9) { fieldSpot = 'Lineup'; battingOrder = lineupCount; lineupCount++; }
+                        else fieldSpot = 'Bench';
+                    }
+                } else if (is40Man) {
+                    fieldSpot = mode === 'offseason' ? 'Rotation' : '40-Man Minor';
+                }
+
+                roster.push({
+                    id: rawId, name: rawName, initials, position: pos, age, level, rosterStatus: status, injury,
+                    optionsLeft, contractStatus: expiryType, aav, remaining, expiryType, cbtValue, cbtList, teamRank, top100Rank, is40Man,
+                    faStatus, fieldSpot, battingOrder, originalTeamId: team.id
+                });
+            });
+
+            return { ...team, roster, deadMoney: 0, transactions: [] };
+        };
+
+        const TeamSelect = ({ onSelect, showNotification }) => {
+            const [mode, setMode] = useState('offseason');
+            const [loadingTeam, setLoadingTeam] = useState(null);
+
+            const handleTeamClick = async (team) => {
+                setLoadingTeam(team.id);
+                showNotification(`Fetching data for ${team.abbr}...`, 'info');
+                try {
+                    const data = await fetchTeamData(team, 2026, mode);
+                    showNotification(`Loaded ${team.abbr}!`, 'success');
+                    onSelect(data, mode, 2026);
+                } catch (err) {
+                    showNotification(`Data Error for ${team.abbr}`, 'error');
+                } finally {
+                    setLoadingTeam(null);
+                }
+            };
+
+            return (
+                <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-zinc-950 relative overflow-y-auto">
+                    {loadingTeam && (
+                        <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center">
+                            <img src={`https://www.mlbstatic.com/team-logos/${loadingTeam}.svg`} className="w-24 h-24 mb-4 animate-pulse" />
+                            <h2 className="text-xl font-bold text-sky-400 uppercase tracking-widest">Loading Database</h2>
+                        </div>
+                    )}
+                    
+                    <div className="flex items-center gap-3 mb-6 mt-10">
+                        <img src="https://www.mlbstatic.com/team-logos/league-on-dark/mlb.svg" className="w-12 h-12" />
+                        <h1 className="text-5xl font-black text-white tracking-tighter">MLB<span className="text-sky-500">GM</span></h1>
+                    </div>
+                    
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-8 w-full max-w-xl text-center shadow-xl">
+                        <label className="text-zinc-500 font-bold uppercase text-[10px] tracking-wider block mb-2">2026 Simulation Mode</label>
+                        <div className="flex gap-3 justify-center">
+                            <button onClick={() => setMode('offseason')} className={`flex-1 py-3 rounded font-bold text-sm transition-colors ${mode === 'offseason' ? 'bg-emerald-600 text-white shadow' : 'bg-zinc-950 text-zinc-400 border border-zinc-800 hover:text-white'}`}>2026 Offseason</button>
+                            <button onClick={() => setMode('tdl')} className={`flex-1 py-3 rounded font-bold text-sm transition-colors ${mode === 'tdl' ? 'bg-amber-600 text-white shadow' : 'bg-zinc-950 text-zinc-400 border border-zinc-800 hover:text-white'}`}>2026 Trade Deadline</button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3 w-full max-w-4xl pb-10">
+                        {TEAM_DB_INIT.map(t => (
+                            <div key={t.id} onClick={() => handleTeamClick(t)} className="bg-zinc-900 border border-zinc-800 p-4 rounded-lg hover:border-sky-500 cursor-pointer transition-all flex flex-col items-center group">
+                                <img src={`https://www.mlbstatic.com/team-logos/${t.id}.svg`} className="w-12 h-12 mb-2 group-hover:scale-110 transition-transform" />
+                                <h3 className="text-[10px] font-bold text-zinc-400 text-center uppercase tracking-tighter group-hover:text-white">{t.name}</h3>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const RosterDashboard = ({ team, setTeam, setupData, showNotification }) => {
+            const [minorsFilter, setMinorsFilter] = useState('All');
+            const [farmFilter, setFarmFilter] = useState('All');
+            const [ilFilter, setIlFilter] = useState('IL15');
+            const [activePlayerModal, setActivePlayerModal] = useState(null);
+
+            useAutoScroll();
+
+            const handleDrop = (playerId, targetId, sourceTeamId) => {
+                setTeam(prev => {
+                    const newRoster = [...prev.roster];
+                    const player = newRoster.find(p => p.id === playerId);
+                    if (!player) return prev;
+
+                    if (typeof targetId === 'number') {
+                        player.battingOrder = targetId;
+                        player.fieldSpot = 'Lineup';
+                        player.is40Man = true;
+                        player.rosterStatus = '26-Man Active';
+                    } else {
+                        if (targetId === 'Lineup') {
+                            const used = newRoster.filter(p => p.fieldSpot === 'Lineup').map(p => p.battingOrder).filter(Boolean);
+                            let nextOrder = 1;
+                            while(used.includes(nextOrder)) nextOrder++;
+                            player.battingOrder = nextOrder;
+                        } else {
+                            player.battingOrder = null;
+                        }
+                        player.fieldSpot = targetId;
+                    }
+                    
+                    if (['IL7', 'IL15', 'IL60'].includes(targetId)) {
+                        player.rosterStatus = targetId;
+                    } else if (targetId === 'Minors') {
+                        player.is40Man = false;
+                        player.rosterStatus = 'Minors';
+                    } else if (targetId === '40-Man Minor') {
+                        player.is40Man = true;
+                        player.rosterStatus = '40-Man';
+                    } else if (targetId !== 'Lineup' && typeof targetId !== 'number') {
+                        player.is40Man = true; 
+                        player.rosterStatus = '26-Man Active'; 
+                    }
+
+                    return { ...prev, roster: newRoster };
+                });
+            };
+
+            const handlePlayerAction = (action, meta = null) => {
+                if (!activePlayerModal) return;
+                const playerId = activePlayerModal.id;
+
+                setTeam(prev => {
+                    const roster = [...prev.roster];
+                    const p = roster.find(x => x.id === playerId);
+                    if (!p) return prev;
+
+                    if (action === 'role') {
+                        p.fieldSpot = meta;
+                        p.battingOrder = meta === 'Lineup' ? (roster.filter(x => x.fieldSpot === 'Lineup').length + 1) : null;
+                        p.is40Man = true;
+                        p.rosterStatus = '26-Man Active';
+                        showNotification(`Moved ${p.name} to ${meta}`, 'success');
+                    } else if (action === 'minors') {
+                        if (p.optionsLeft > 0) {
+                            p.optionsLeft -= 1;
+                            p.fieldSpot = 'Minors';
+                            p.is40Man = false;
+                            p.rosterStatus = 'Minors';
+                            showNotification(`Optioned ${p.name} to Minors (${p.optionsLeft} options remaining)`, 'success');
+                        } else {
+                            p.fieldSpot = 'Minors';
+                            p.is40Man = false;
+                            p.rosterStatus = 'Minors';
+                            showNotification(`${p.name} has 0 options left and was DFA'd / sent to Minors`, 'warning');
+                        }
+                    } else if (action === 'il') {
+                        p.fieldSpot = meta;
+                        p.rosterStatus = meta;
+                        showNotification(`Placed ${p.name} on ${meta}`, 'warning');
+                    }
+                    return { ...prev, roster };
+                });
+                setActivePlayerModal(null);
+            };
+
+            const lineupPlayers = team.roster.filter(p => p.fieldSpot === 'Lineup');
+            const bench = team.roster.filter(p => p.fieldSpot === 'Bench');
+            const rotation = team.roster.filter(p => p.fieldSpot === 'Rotation');
+            const bullpen = team.roster.filter(p => p.fieldSpot === 'Bullpen');
+            const il = team.roster.filter(p => p.fieldSpot === ilFilter);
+            
+            let minors = team.roster.filter(p => ['Minors', '40-Man Minor'].includes(p.fieldSpot));
+            if (farmFilter === 'Top 30') minors = minors.filter(p => p.teamRank && p.teamRank <= 30);
+            else if (farmFilter === '40-Man') minors = minors.filter(p => p.is40Man);
+            if (minorsFilter !== 'All') minors = minors.filter(p => p.level === minorsFilter);
+
+            const activeCount = lineupPlayers.length + bench.length + rotation.length + bullpen.length;
+            const count40 = team.roster.filter(p => p.is40Man && p.fieldSpot !== 'IL60' && p.fieldSpot !== 'Pending FA').length;
+            const payroll = team.roster.filter(p => p.fieldSpot !== 'Pending FA').reduce((sum, p) => sum + p.cbtValue, 0) + team.deadMoney;
+
+            return (
+                <div className="flex-1 flex flex-col h-full bg-zinc-950 overflow-hidden relative">
+                    {activePlayerModal && (
+                        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                            <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-sm w-full shadow-2xl">
+                                <div className="flex items-center gap-3 mb-4 border-b border-zinc-800 pb-3">
+                                    <PlayerImage player={activePlayerModal} teamInfo={team} className="w-12 h-12 rounded-full border border-zinc-700 object-cover" />
+                                    <div>
+                                        <h3 className="text-base font-black text-white">{activePlayerModal.name}</h3>
+                                        <p className="text-xs text-zinc-400 font-bold">{activePlayerModal.position} • {formatMoney(activePlayerModal.cbtValue)}</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-2 mb-4">
+                                    <div className="text-[10px] text-zinc-500 font-black uppercase tracking-wider mb-1">Move to Role</div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button onClick={() => handlePlayerAction('role', 'Rotation')} className="bg-zinc-950 hover:bg-sky-600/20 border border-zinc-800 hover:border-sky-500 p-2 rounded text-xs font-bold text-zinc-300 transition-colors">Rotation</button>
+                                        <button onClick={() => handlePlayerAction('role', 'Bullpen')} className="bg-zinc-950 hover:bg-sky-600/20 border border-zinc-800 hover:border-sky-500 p-2 rounded text-xs font-bold text-zinc-300 transition-colors">Bullpen</button>
+                                        <button onClick={() => handlePlayerAction('role', 'Bench')} className="bg-zinc-950 hover:bg-sky-600/20 border border-zinc-800 hover:border-sky-500 p-2 rounded text-xs font-bold text-zinc-300 transition-colors">Bench</button>
+                                        <button onClick={() => handlePlayerAction('minors')} className="bg-zinc-950 hover:bg-amber-600/20 border border-zinc-800 hover:border-amber-500 p-2 rounded text-xs font-bold text-amber-300 transition-colors">
+                                            {activePlayerModal.optionsLeft > 0 ? `Option to Minors (${activePlayerModal.optionsLeft})` : 'DFA / Minors (0 opt)'}
+                                        </button>
+                                    </div>
+
+                                    <div className="text-[10px] text-zinc-500 font-black uppercase tracking-wider mt-3 mb-1">Place on Injured List</div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button onClick={() => handlePlayerAction('il', 'IL7')} className="bg-red-950/30 hover:bg-red-900/50 border border-red-900/50 p-2 rounded text-[11px] font-bold text-red-300 transition-colors">7-Day IL</button>
+                                        <button onClick={() => handlePlayerAction('il', 'IL15')} className="bg-red-950/30 hover:bg-red-900/50 border border-red-900/50 p-2 rounded text-[11px] font-bold text-red-300 transition-colors">15-Day IL</button>
+                                        <button onClick={() => handlePlayerAction('il', 'IL60')} className="bg-red-950/30 hover:bg-red-900/50 border border-red-900/50 p-2 rounded text-[11px] font-bold text-red-300 transition-colors">60-Day IL</button>
+                                    </div>
+                                </div>
+
+                                <button onClick={() => setActivePlayerModal(null)} className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-lg text-xs uppercase tracking-wider">Cancel</button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="glass-panel px-4 py-3 flex justify-between items-center z-10 border-b border-zinc-800 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <img src={`https://www.mlbstatic.com/team-logos/${team.id}.svg`} className="w-10 h-10" />
+                            <div>
+                                <h2 className="text-xl font-black">{team.name}</h2>
+                                <p className="text-zinc-400 text-[10px] font-bold uppercase">{setupData.year} Dashboard • {setupData.mode.toUpperCase()}</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <div className="bg-zinc-900 px-3 py-1 rounded border border-zinc-800 text-center">
+                                <div className="text-[9px] text-zinc-500 uppercase font-bold">Active</div>
+                                <div className={`text-sm font-black ${activeCount > 26 ? 'text-red-400':'text-white'}`}>{activeCount}/26</div>
+                            </div>
+                            <div className="bg-zinc-900 px-3 py-1 rounded border border-zinc-800 text-center">
+                                <div className="text-[9px] text-zinc-500 uppercase font-bold">40-Man</div>
+                                <div className={`text-sm font-black ${count40 > 40 ? 'text-red-400':'text-white'}`}>{count40}/40</div>
+                            </div>
+                            <div className="bg-zinc-900 px-3 py-1 rounded border border-zinc-800 text-center">
+                                <div className="text-[9px] text-zinc-500 uppercase font-bold">{setupData.year} CBT Payroll</div>
+                                <div className="text-sm font-black text-emerald-400">{formatMoney(payroll)}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 w-full">
+                        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 pb-20">
+                            
+                            {/* Starting Lineup with 1-9 Slots */}
+                            <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg flex flex-col">
+                                <div className="text-[11px] text-sky-400 font-bold uppercase mb-2 px-1 flex justify-between items-center border-b border-zinc-800 pb-1">
+                                    <span>Starting Lineup (Batting Order 1-9)</span>
+                                    <span className="text-zinc-500">{lineupPlayers.length}/9</span>
+                                </div>
+                                <div className="flex-1 flex flex-col gap-1.5 w-full">
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(slotNum => {
+                                        const playerInSlot = lineupPlayers.find(p => p.battingOrder === slotNum);
+                                        return (
+                                            <div 
+                                                key={slotNum}
+                                                className="relative flex items-center bg-zinc-950/60 border border-zinc-800/80 rounded-lg min-h-[50px] overflow-hidden transition-all"
+                                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-sky-400', 'bg-sky-950/30'); }}
+                                                onDragLeave={(e) => { e.currentTarget.classList.remove('border-sky-400', 'bg-sky-950/30'); }}
+                                                onDrop={(e) => {
+                                                    e.preventDefault();
+                                                    e.currentTarget.classList.remove('border-sky-400', 'bg-sky-950/30');
+                                                    const playerId = e.dataTransfer.getData('playerId');
+                                                    const sourceTeamId = e.dataTransfer.getData('sourceTeamId');
+                                                    handleDrop(playerId, slotNum, sourceTeamId);
+                                                }}
+                                            >
+                                                <div className="w-8 bg-zinc-900 border-r border-zinc-800 flex items-center justify-center font-black text-xs text-sky-400 shrink-0 h-full">
+                                                    #{slotNum}
+                                                </div>
+                                                <div className="flex-1 p-1 min-w-0">
+                                                    {playerInSlot ? (
+                                                        <PlayerCard player={playerInSlot} teamInfo={team} onClick={setActivePlayerModal} />
+                                                    ) : (
+                                                        <div className="h-full flex items-center justify-center text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
+                                                            Drop player here for spot #{slotNum}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg">
+                                <DropZone id="Bench" label="Bench" players={bench} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} />
+                            </div>
+
+                            <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg">
+                                <DropZone id="Rotation" label="Starting Rotation" players={rotation} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} />
+                            </div>
+                            <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg">
+                                <DropZone id="Bullpen" label="Bullpen" players={bullpen} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} />
+                            </div>
+
+                            <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800 shadow-lg flex flex-col h-[600px]">
+                                <div className="flex justify-between items-center mb-3 pb-2 border-b border-zinc-800 gap-2">
+                                    <span className="text-[11px] text-amber-400 font-bold uppercase tracking-widest shrink-0">Farm System</span>
+                                    <div className="flex gap-1.5 items-center flex-wrap justify-end">
+                                        <div className="flex bg-zinc-950 rounded border border-zinc-700 p-0.5">
+                                            {['All', 'Top 30', '40-Man'].map(f => (
+                                                <button key={f} onClick={() => setFarmFilter(f)} className={`text-[9px] px-2 py-0.5 rounded font-bold transition-colors ${farmFilter===f?'bg-amber-600 text-white':'text-zinc-400 hover:text-white'}`}>{f}</button>
+                                            ))}
+                                        </div>
+                                        <select value={minorsFilter} onChange={e=>setMinorsFilter(e.target.value)} className="bg-zinc-950 text-white text-[10px] p-1 rounded border border-zinc-700 outline-none font-bold">
+                                            <option value="All">All Levels</option><option value="AAA">AAA</option><option value="AA">AA</option><option value="A+">High-A</option><option value="A">Single-A</option><option value="Rk">Rookie</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-y-auto pr-1">
+                                    <DropZone id="Minors" players={minors} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} className="!border-none !bg-transparent !p-0" />
+                                </div>
+                            </div>
+                            
+                            <div className="bg-zinc-900 p-3 rounded-xl border border-red-900/30 bg-red-950/10 flex flex-col h-[600px]">
+                                <div className="flex justify-between items-center mb-3 pb-2 border-b border-red-900/50">
+                                    <span className="text-[11px] text-red-400 font-bold uppercase tracking-widest">Injured List</span>
+                                    <select value={ilFilter} onChange={e=>setIlFilter(e.target.value)} className="bg-red-950 text-red-300 text-[10px] p-1 rounded border border-red-900 outline-none font-bold">
+                                        <option value="IL7">7-Day IL</option><option value="IL15">10/15-Day IL</option><option value="IL60">60-Day IL</option>
+                                    </select>
+                                </div>
+                                <div className="flex-1 overflow-y-auto pr-1">
+                                    <DropZone id={ilFilter} players={il} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} className="!border-none !bg-transparent !p-0" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const TradeSimulator = ({ myTeam, setMyTeam, setupData, showNotification }) => {
+            const [partnerTeam, setPartnerTeam] = useState(null);
+            const [loadingPartner, setLoadingPartner] = useState(false);
+            const [myTradeBlock, setMyTradeBlock] = useState([]);
+            const [partnerTradeBlock, setPartnerTradeBlock] = useState([]);
+
+            const loadPartner = async (teamId) => {
+                if (!teamId) { setPartnerTeam(null); setPartnerTradeBlock([]); return; }
+                setLoadingPartner(true);
+                const targetTeamMeta = TEAM_DB_INIT.find(t => t.id === parseInt(teamId));
+                try {
+                    const data = await fetchTeamData(targetTeamMeta, setupData.year, setupData.mode);
+                    setPartnerTeam(data);
+                    setPartnerTradeBlock([]);
+                } catch (e) {
+                    showNotification("Failed to load partner", "error");
+                } finally {
+                    setLoadingPartner(false);
+                }
+            };
+
+            const handleDropLocal = (playerId, targetZone, sourceTeamId) => {
+                const sid = parseInt(sourceTeamId);
+                if (targetZone === 'myBlock' && sid === myTeam.id) {
+                    const p = myTeam.roster.find(x => x.id === playerId);
+                    if (p && !myTradeBlock.find(x => x.id === playerId)) setMyTradeBlock([...myTradeBlock, p]);
+                } else if (targetZone === 'partnerBlock' && partnerTeam && sid === partnerTeam.id) {
+                    const p = partnerTeam.roster.find(x => x.id === playerId);
+                    if (p && !partnerTradeBlock.find(x => x.id === playerId)) setPartnerTradeBlock([...partnerTradeBlock, p]);
+                } else if (targetZone === 'myRoster' && sid === myTeam.id) {
+                    setMyTradeBlock(myTradeBlock.filter(x => x.id !== playerId));
+                } else if (targetZone === 'partnerRoster' && partnerTeam && sid === partnerTeam.id) {
+                    setPartnerTradeBlock(partnerTradeBlock.filter(x => x.id !== playerId));
+                }
+            };
+
+            const executeTrade = () => {
+                if (myTradeBlock.length === 0 && partnerTradeBlock.length === 0) return;
+                
+                const myNewRoster = myTeam.roster.filter(p => !myTradeBlock.find(x => x.id === p.id));
+                const acquired = partnerTradeBlock.map(p => ({ 
+                    ...p, 
+                    fieldSpot: p.position === 'SP' ? 'Rotation' : p.position === 'RP' ? 'Bullpen' : 'Bench', 
+                    is40Man: true, 
+                    rosterStatus: '40-Man' 
+                }));
+                
+                setMyTeam({ ...myTeam, roster: [...myNewRoster, ...acquired] });
+                setMyTradeBlock([]);
+                setPartnerTradeBlock([]);
+                setPartnerTeam(null);
+                showNotification("Trade Executed Successfully!", "success");
+            };
+
+            const myAvailable = myTeam.roster.filter(p => !myTradeBlock.find(x => x.id === p.id) && p.fieldSpot !== 'Pending FA');
+            const pAvailable = partnerTeam ? partnerTeam.roster.filter(p => !partnerTradeBlock.find(x => x.id === p.id) && p.fieldSpot !== 'Pending FA') : [];
+
+            return (
+                <div className="flex-1 flex flex-col h-full bg-zinc-950 p-4 overflow-hidden">
+                    <div className="flex justify-between items-center mb-4 shrink-0 px-2">
+                        <h2 className="text-2xl font-black text-white tracking-tighter">Trade Simulator</h2>
+                        <select onChange={e => loadPartner(e.target.value)} className="bg-zinc-900 border border-zinc-700 p-2 rounded text-sm text-white outline-none w-64 font-bold shadow-lg">
+                            <option value="">Select Trade Partner...</option>
+                            {TEAM_DB_INIT.filter(t => t.id !== myTeam.id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="flex-1 flex gap-4 overflow-hidden max-w-[1400px] mx-auto w-full">
+                        <div className="w-1/3 bg-zinc-900 rounded-lg border border-zinc-800 flex flex-col overflow-hidden shadow-xl">
+                            <div className="bg-zinc-950 p-3 flex items-center gap-2 border-b border-zinc-800">
+                                <img src={`https://www.mlbstatic.com/team-logos/${myTeam.id}.svg`} className="w-6 h-6" />
+                                <span className="text-xs font-black text-zinc-300 uppercase tracking-widest">{myTeam.name}</span>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-2">
+                                <DropZone id="myRoster" players={myAvailable} onDrop={handleDropLocal} teamInfo={myTeam} className="!border-none !p-0 !min-h-full" />
+                            </div>
+                        </div>
+
+                        <div className="w-1/3 flex flex-col gap-4 py-2">
+                            <div className="flex-1 bg-zinc-900 rounded-lg border border-emerald-900/50 p-3 flex flex-col shadow-lg">
+                                <span className="text-[10px] uppercase font-black text-emerald-400 mb-2 tracking-widest text-center">Acquiring</span>
+                                <DropZone id="partnerBlock" players={partnerTradeBlock} onDrop={handleDropLocal} teamInfo={partnerTeam || myTeam} className="flex-1 !border-emerald-800/30" />
+                            </div>
+                            
+                            <button onClick={executeTrade} className="bg-sky-600 hover:bg-sky-500 text-white font-black py-4 rounded-lg shadow-lg text-lg transition-transform active:scale-95 disabled:opacity-25 disabled:cursor-not-allowed uppercase tracking-widest" disabled={myTradeBlock.length===0 && partnerTradeBlock.length===0}>
+                                Execute Trade
+                            </button>
+
+                            <div className="flex-1 bg-zinc-900 rounded-lg border border-rose-900/50 p-3 flex flex-col shadow-lg">
+                                <span className="text-[10px] uppercase font-black text-rose-400 mb-2 tracking-widest text-center">Trading Away</span>
+                                <DropZone id="myBlock" players={myTradeBlock} onDrop={handleDropLocal} teamInfo={myTeam} className="flex-1 !border-rose-800/30" />
+                            </div>
+                        </div>
+
+                        <div className="w-1/3 bg-zinc-900 rounded-lg border border-zinc-800 flex flex-col overflow-hidden shadow-xl relative">
+                            {loadingPartner ? (
+                                <div className="absolute inset-0 bg-zinc-950/80 flex items-center justify-center z-10"><div className="spinner"></div></div>
+                            ) : !partnerTeam ? (
+                                <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs font-black uppercase text-center p-4 tracking-widest">Select a team above to begin</div>
+                            ) : (
+                                <>
+                                    <div className="bg-zinc-950 p-3 flex items-center gap-2 border-b border-zinc-800">
+                                        <img src={`https://www.mlbstatic.com/team-logos/${partnerTeam.id}.svg`} className="w-6 h-6" />
+                                        <span className="text-xs font-black text-zinc-300 uppercase tracking-widest">{partnerTeam.name}</span>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto p-2">
+                                        <DropZone id="partnerRoster" players={pAvailable} onDrop={handleDropLocal} teamInfo={partnerTeam} className="!border-none !p-0 !min-h-full" />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const FreeAgencyHub = ({ team, setTeam, setMyTeam, setupData, showNotification }) => {
+            const [activeSubTab, setActiveSubTab] = useState('UFA');
+            const [selectedTeamId, setSelectedTeamId] = useState('ALL');
+            const [leagueFaData, setLeagueFaData] = useState([]);
+            const [loadingLeague, setLoadingLeague] = useState(false);
+            const [negotiatingPlayer, setNegotiatingPlayer] = useState(null);
+            const [offerAAV, setOfferAAV] = useState(5000000);
+            const [offerYears, setOfferYears] = useState(1);
+            const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+
+            const activeSetTeam = setTeam || setMyTeam;
+
+            useEffect(() => {
+                if (activeSubTab === 'Arb' || activeSubTab === 'Options') {
+                    setSelectedTeamId(team.id);
+                }
+            }, [activeSubTab, team.id]);
+
+            useEffect(() => {
+                const fetchFAs = async () => {
+                    setLoadingLeague(true);
+                    try {
+                        if (selectedTeamId === 'ALL' && activeSubTab === 'UFA') {
+                            const results = await Promise.all(TEAM_DB_INIT.map(async t => {
+                                try {
+                                    const data = await fetchTeamData(t, setupData.year, setupData.mode);
+                                    return data.roster.filter(p => p.fieldSpot === 'Pending FA').map(p => ({ ...p, teamInfo: t }));
+                                } catch (e) {
+                                    return [];
+                                }
+                            }));
+                            setLeagueFaData(results.flat());
+                        } else {
+                            const targetId = (activeSubTab === 'Arb' || activeSubTab === 'Options') ? team.id : selectedTeamId;
+                            const tMeta = TEAM_DB_INIT.find(t => t.id === parseInt(targetId)) || team;
+                            const data = (tMeta.id === team.id) ? team : await fetchTeamData(tMeta, setupData.year, setupData.mode);
+                            setLeagueFaData(data.roster.filter(p => p.fieldSpot === 'Pending FA').map(p => ({ ...p, teamInfo: tMeta })));
+                        }
+                    } catch (e) {
+                        showNotification("Failed to load free agents", "error");
+                    } finally {
+                        setLoadingLeague(false);
+                    }
+                };
+                fetchFAs();
+            }, [selectedTeamId, activeSubTab, team, setupData]);
+
+            const handleDecision = (playerId, teamId, action, aav = 0, years = 1) => {
+                if (teamId !== team.id) {
+                    showNotification("You can only manage free agency, arbitration, and option decisions for your own team.", "warning");
+                    return;
+                }
+
+                if (typeof activeSetTeam !== 'function') {
+                    showNotification("Team state updater error. Please refresh.", "error");
+                    return;
+                }
+
+                activeSetTeam(prev => {
+                    if (!prev) return prev;
+                    let roster = [...prev.roster];
+                    const idx = roster.findIndex(p => p.id === playerId);
+                    if (idx > -1) {
+                        if (action === 'retain') {
+                            const p = { ...roster[idx] };
+                            let newSpot = 'Bench';
+                            if (p.position === 'SP') newSpot = 'Rotation';
+                            else if (p.position === 'RP') newSpot = 'Bullpen';
+                            
+                            p.fieldSpot = newSpot;
+                            p.is40Man = true;
+                            p.rosterStatus = '26-Man Active';
+                            p.cbtValue = aav || p.cbtValue || 5000000;
+                            p.remaining = years;
+                            p.faStatus = 'Under Contract';
+                            p.expiryType = years > 1 ? 'UFA' : (p.expiryType || 'UFA');
+                            roster[idx] = p;
+                            showNotification(`Successfully signed/retained ${p.name}!`, 'success');
+                        } else {
+                            showNotification(`${roster[idx].name} has left the organization.`, 'warning');
+                            roster = roster.filter(p => p.id !== playerId);
+                        }
+                    }
+                    return { ...prev, roster };
+                });
+
+                setLeagueFaData(prev => prev.filter(p => p.id !== playerId));
+                setNegotiatingPlayer(null);
+            };
+
+            const ufas = leagueFaData.filter(p => p.expiryType === 'UFA');
+            const arbs = leagueFaData.filter(p => p.expiryType === 'Arb');
+            const opts = leagueFaData.filter(p => p.expiryType.toLowerCase().includes('option'));
+
+            const rawListToRender = activeSubTab === 'UFA' ? ufas : activeSubTab === 'Arb' ? arbs : opts;
+
+            const sortedListToRender = useMemo(() => {
+                let list = [...rawListToRender];
+                list.sort((a, b) => {
+                    let aVal = a[sortConfig.key];
+                    let bVal = b[sortConfig.key];
+                    if (sortConfig.key === 'cbtValue') {
+                        aVal = a.cbtValue || a.aav || 0;
+                        bVal = b.cbtValue || b.aav || 0;
+                    }
+                    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+                return list;
+            }, [rawListToRender, sortConfig]);
+
+            const handleSort = (key) => {
+                setSortConfig(prev => ({
+                    key,
+                    direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+                }));
+            };
+
+            return (
+                <div className="flex-1 flex flex-col h-full bg-zinc-950 p-6 overflow-hidden relative">
+                    {loadingLeague && <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50"><div className="spinner"></div></div>}
+                    
+                    {negotiatingPlayer && (
+                        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                            <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-md w-full shadow-2xl">
+                                <h3 className="text-xl font-black text-white mb-2">Contract Offer: {negotiatingPlayer.name}</h3>
+                                <p className="text-xs text-zinc-400 mb-4">{negotiatingPlayer.position} • Previous AAV: {formatMoney(negotiatingPlayer.cbtValue || negotiatingPlayer.aav)}</p>
+                                
+                                {negotiatingPlayer.expiryType.toLowerCase().includes('option') ? (
+                                    <div className="bg-zinc-950 p-4 rounded border border-zinc-800 mb-6 text-center">
+                                        <p className="text-xs text-zinc-400 mb-2">{negotiatingPlayer.expiryType} Value (Fixed):</p>
+                                        <p className="text-xl font-black text-emerald-400">{formatMoney(negotiatingPlayer.cbtValue || negotiatingPlayer.aav)}</p>
+                                        <p className="text-[10px] text-zinc-500 mt-2">Exercising this option locks the player in for 1 year at their preset contract rate.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4 mb-6">
+                                        <div>
+                                            <label className="text-xs text-zinc-400 font-bold block mb-1">Annual Value (AAV)</label>
+                                            <input 
+                                                type="text" 
+                                                value={offerAAV ? offerAAV.toLocaleString() : ''} 
+                                                onChange={e => {
+                                                    const raw = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '');
+                                                    setOfferAAV(raw === '' ? 0 : parseInt(raw, 10));
+                                                }} 
+                                                className="w-full bg-zinc-950 border border-zinc-700 p-2.5 rounded text-white font-bold outline-none" 
+                                            />
+                                            <span className="text-xs text-emerald-400 font-semibold mt-1 block">{formatMoney(offerAAV)} / year</span>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-zinc-400 font-bold block mb-1">Contract Length (Years)</label>
+                                            <select value={offerYears} onChange={e => setOfferYears(parseInt(e.target.value))} className="w-full bg-zinc-950 border border-zinc-700 p-2.5 rounded text-white font-bold outline-none">
+                                                {[1, 2, 3, 4, 5, 6, 7].map(y => <option key={y} value={y}>{y} {y === 1 ? 'Year' : 'Years'}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex gap-3">
+                                    <button onClick={() => {
+                                        if (negotiatingPlayer.expiryType.toLowerCase().includes('option')) {
+                                            handleDecision(negotiatingPlayer.id, negotiatingPlayer.teamInfo.id, 'retain', negotiatingPlayer.cbtValue || negotiatingPlayer.aav, 1);
+                                        } else {
+                                            handleDecision(negotiatingPlayer.id, negotiatingPlayer.teamInfo.id, 'retain', offerAAV, offerYears);
+                                        }
+                                    }} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-lg uppercase tracking-wider">
+                                        {negotiatingPlayer.expiryType.toLowerCase().includes('option') ? 'Exercise Option' : 'Submit Offer'}
+                                    </button>
+                                    <button onClick={() => setNegotiatingPlayer(null)} className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-lg">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end shrink-0 max-w-6xl mx-auto w-full gap-4">
+                        <div>
+                            <h2 className="text-3xl font-black text-white tracking-tighter">Free Agency Hub</h2>
+                            <p className="text-zinc-400 font-bold text-xs uppercase mt-1 tracking-widest">{setupData.year} Expiring Contracts & Decisions</p>
+                        </div>
+                        <div className="flex flex-wrap gap-3 items-center">
+                            {activeSubTab === 'UFA' && (
+                                <select value={selectedTeamId} onChange={e => setSelectedTeamId(e.target.value === 'ALL' ? 'ALL' : parseInt(e.target.value))} className="bg-zinc-900 border border-zinc-700 p-2 rounded text-xs text-white outline-none font-bold shadow-lg">
+                                    <option value="ALL">🌐 All MLB Teams (League-Wide)</option>
+                                    {TEAM_DB_INIT.map(t => <option key={t.id} value={t.id}>{t.name} {t.id === team.id ? '(My Team)' : ''}</option>)}
+                                </select>
+                            )}
+
+                            {(activeSubTab === 'Arb' || activeSubTab === 'Options') && (
+                                <div className="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded text-xs text-sky-400 font-bold shadow-lg">
+                                    🔒 Restricted to {team.name}
+                                </div>
+                            )}
+
+                            <div className="flex bg-zinc-900 border border-zinc-800 rounded-lg p-1 gap-1">
+                                {['Options', 'Arb', 'UFA'].map(tab => {
+                                    return (
+                                        <button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-3 py-1.5 rounded font-bold text-xs transition-colors tracking-wide ${activeSubTab === tab ? 'bg-sky-600 text-white shadow' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}>
+                                            {tab}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto w-full max-w-6xl mx-auto">
+                        {sortedListToRender.length === 0 ? (
+                            <div className="h-64 flex items-center justify-center text-zinc-600 font-black text-lg uppercase tracking-widest border-2 border-dashed border-zinc-800 rounded-xl">No pending players in this category</div>
+                        ) : (
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-xl">
+                                <table className="w-full text-left text-sm whitespace-nowrap">
+                                    <thead className="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-widest select-none">
+                                        <tr>
+                                            <th onClick={() => handleSort('name')} className="px-6 py-4 font-bold border-b border-zinc-800 cursor-pointer hover:text-sky-400">Player ↕</th>
+                                            <th className="px-6 py-4 font-bold border-b border-zinc-800">Team</th>
+                                            <th onClick={() => handleSort('position')} className="px-6 py-4 font-bold border-b border-zinc-800 cursor-pointer hover:text-sky-400">Position ↕</th>
+                                            <th onClick={() => handleSort('age')} className="px-6 py-4 font-bold border-b border-zinc-800 cursor-pointer hover:text-sky-400">Age ↕</th>
+                                            <th onClick={() => handleSort('cbtValue')} className="px-6 py-4 font-bold border-b border-zinc-800 cursor-pointer hover:text-sky-400">Previous AAV ↕</th>
+                                            <th onClick={() => handleSort('expiryType')} className="px-6 py-4 font-bold border-b border-zinc-800 cursor-pointer hover:text-sky-400">Status ↕</th>
+                                            <th className="px-6 py-4 font-bold border-b border-zinc-800 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-800/50">
+                                        {sortedListToRender.map(p => {
+                                            const pTeamInfo = p.teamInfo || team;
+                                            const canAct = pTeamInfo.id === team.id;
+                                            return (
+                                                <tr key={`${pTeamInfo.id}-${p.id}`} className="hover:bg-zinc-800/50 transition-colors">
+                                                    <td className="px-6 py-3 font-bold text-white flex items-center gap-3">
+                                                        <PlayerImage player={p} teamInfo={pTeamInfo} className="w-8 h-8 rounded-full bg-zinc-800 object-cover border border-zinc-700" />
+                                                        <span onClick={() => canAct && setNegotiatingPlayer(p)} className={`${canAct ? 'cursor-pointer hover:text-sky-400' : ''} transition-colors`}>{p.name}</span>
+                                                    </td>
+                                                    <td className="px-6 py-3 font-semibold text-zinc-400 flex items-center gap-2">
+                                                        <img src={`https://www.mlbstatic.com/team-logos/${pTeamInfo.id}.svg`} className="w-5 h-5" />
+                                                        {pTeamInfo.name}
+                                                    </td>
+                                                    <td className="px-6 py-3 font-semibold text-zinc-300">{p.position}</td>
+                                                    <td className="px-6 py-3 font-semibold text-zinc-400">{p.age}</td>
+                                                    <td className="px-6 py-3 font-bold text-emerald-400">{formatMoney(p.cbtValue || p.aav)}</td>
+                                                    <td className="px-6 py-3"><span className="bg-sky-950 text-sky-300 border border-sky-800 px-2 py-0.5 rounded text-[10px] font-black uppercase">{p.expiryType}</span></td>
+                                                    <td className="px-6 py-3 text-right">
+                                                        {canAct ? (
+                                                            <div className="flex gap-2 justify-end">
+                                                                <button onClick={() => setNegotiatingPlayer(p)} className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-700/50 px-3 py-1 rounded text-xs font-black uppercase transition-colors">
+                                                                    {activeSubTab === 'Options' ? 'Exercise' : activeSubTab === 'Arb' ? 'Settle Arb' : 'Re-Sign'}
+                                                                </button>
+                                                                <button onClick={() => handleDecision(p.id, pTeamInfo.id, 'release')} className="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-700/50 px-3 py-1 rounded text-xs font-black uppercase transition-colors">
+                                                                    Release
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-[10px] text-zinc-500 font-bold uppercase">Other Team</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const PayrollViewer = ({ team, setupData }) => {
+            const activeContracts = team.roster.filter(p => p.is40Man || p.cbtList.some(v => v > 0));
+            const getColSum = (idx) => activeContracts.reduce((sum, p) => sum + (p.cbtList[idx] || 0), 0);
+            const totals = [0, 1, 2, 3, 4].map(idx => getColSum(idx));
+
+            return (
+                <div className="flex-1 flex flex-col h-full bg-zinc-950 p-6 overflow-hidden">
+                    <div className="mb-6 shrink-0 max-w-6xl mx-auto w-full">
+                        <h2 className="text-3xl font-black text-white tracking-tighter">5-Year Payroll Outlook</h2>
+                        <p className="text-zinc-400 font-bold text-xs uppercase mt-1 tracking-widest">CBT (AAV) Liability</p>
+                    </div>
+                    
+                    <div className="flex-1 overflow-auto max-w-6xl mx-auto w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl">
+                        <table className="w-full text-left text-sm whitespace-nowrap">
+                            <thead className="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-widest sticky top-0 z-20">
+                                <tr>
+                                    <th className="px-6 py-4 font-bold border-b border-zinc-800">Player</th>
+                                    {[2026, 2027, 2028, 2029, 2030].map(y => (
+                                        <th key={y} className={`px-6 py-4 font-bold border-b border-zinc-800 text-right ${y === setupData.year ? 'text-sky-400' : ''}`}>{y}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-800/50">
+                                {activeContracts.map(p => (
+                                    <tr key={p.id} className="hover:bg-zinc-800/50 transition-colors">
+                                        <td className="px-6 py-3">
+                                            <div className="font-bold text-white">{p.name}</div>
+                                            <div className="text-[10px] text-zinc-500 uppercase font-semibold">{p.position} • {p.contractStatus}</div>
+                                        </td>
+                                        {[0, 1, 2, 3, 4].map(idx => (
+                                            <td key={idx} className={`px-6 py-3 text-right font-semibold ${p.cbtList[idx] > 0 ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                                                {p.cbtList[idx] > 0 ? formatMoney(p.cbtList[idx]) : '-'}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-zinc-950 sticky bottom-0 z-20">
+                                <tr>
+                                    <th className="px-6 py-4 font-black text-white uppercase tracking-widest border-t border-zinc-700">Total CBT Payroll</th>
+                                    {[0, 1, 2, 3, 4].map(idx => (
+                                        <th key={idx} className="px-6 py-4 text-right font-black text-white border-t border-zinc-700">
+                                            {formatMoney(totals[idx])}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [setupData, setSetupData] = useState(null); 
+            const [myTeam, setMyTeam] = useState(null);
+            const [activeTab, setActiveTab] = useState('roster');
+            const [notification, setNotification] = useState(null);
+
+            const showNotification = (msg, type='info') => {
+                setNotification({msg, type});
+                setTimeout(() => setNotification(null), 3000);
+            };
+
+            const handleTeamSelect = (teamData, mode, year) => {
+                setMyTeam(teamData);
+                setSetupData({ mode, year });
+                setActiveTab('roster');
+            };
+
+            if (!setupData || !myTeam) return <TeamSelect onSelect={handleTeamSelect} showNotification={showNotification} />;
+
+            return (
+                <div className="flex h-screen w-screen overflow-hidden bg-zinc-950 text-white">
+                    <Toast notification={notification} />
+                    
+                    <div className="w-16 md:w-48 bg-zinc-900 border-r border-zinc-800 h-full flex flex-col shrink-0 z-50 shadow-2xl">
+                        <div className="p-3 border-b border-zinc-800 flex flex-col items-center cursor-pointer hover:bg-zinc-800 transition-colors" onClick={() => { setSetupData(null); setMyTeam(null); }}>
+                            <img src={`https://www.mlbstatic.com/team-logos/${myTeam.id}.svg`} className="w-8 h-8 md:w-12 md:h-12 mb-1 drop-shadow-lg" />
+                            <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest hidden md:block text-center">Change Team</p>
+                        </div>
+                        <nav className="flex-1 py-3 space-y-1.5 px-2">
+                            <button onClick={() => setActiveTab('roster')} className={`w-full flex flex-col md:flex-row items-center justify-center md:justify-start gap-2.5 p-2.5 rounded-lg transition-all font-bold text-xs ${activeTab==='roster' ? 'bg-sky-600 text-white shadow' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}>
+                                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                                <span className="hidden md:inline tracking-wider">Dashboard</span>
+                            </button>
+                            <button onClick={() => setActiveTab('trades')} className={`w-full flex flex-col md:flex-row items-center justify-center md:justify-start gap-2.5 p-2.5 rounded-lg transition-all font-bold text-xs ${activeTab==='trades' ? 'bg-purple-600 text-white shadow' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}>
+                                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                <span className="hidden md:inline tracking-wider">Trades</span>
+                            </button>
+                            <button onClick={() => setActiveTab('payroll')} className={`w-full flex flex-col md:flex-row items-center justify-center md:justify-start gap-2.5 p-2.5 rounded-lg transition-all font-bold text-xs ${activeTab==='payroll' ? 'bg-amber-600 text-white shadow' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}>
+                                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span className="hidden md:inline tracking-wider">Payroll</span>
+                            </button>
+                            {setupData.mode === 'offseason' && (
+                                <button onClick={() => setActiveTab('fa')} className={`w-full flex flex-col md:flex-row items-center justify-center md:justify-start gap-2.5 p-2.5 rounded-lg transition-all font-bold text-xs ${activeTab==='fa' ? 'bg-emerald-600 text-white shadow' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}>
+                                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                    <span className="hidden md:inline tracking-wider">Free Agency</span>
+                                </button>
+                            )}
+                        </nav>
+                    </div>
+
+                    <div className="flex-1 overflow-hidden relative">
+                        {activeTab === 'roster' && <RosterDashboard team={myTeam} setTeam={setMyTeam} setupData={setupData} showNotification={showNotification} />}
+                        {activeTab === 'trades' && <TradeSimulator myTeam={myTeam} setMyTeam={setMyTeam} setupData={setupData} showNotification={showNotification} />}
+                        {activeTab === 'fa' && setupData.mode === 'offseason' && <FreeAgencyHub team={myTeam} setTeam={setMyTeam} setMyTeam={setMyTeam} setupData={setupData} showNotification={showNotification} />}
+                        {activeTab === 'payroll' && <PayrollViewer team={myTeam} setupData={setupData} />}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
