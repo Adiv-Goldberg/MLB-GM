@@ -260,6 +260,7 @@
                 const level = r[4] || "Minors";
                 let status = r[5] || "Minors";
                 let injury = r[6] || "";
+                const svcTime = parseFloat(r[7]) || 0;
                 
                 const extractNumber = (str) => {
                     if (str === undefined || str === null || str === "") return 0;
@@ -274,15 +275,15 @@
                     WHIP: r[17] || "", K: r[18] || "", BB: r[19] || ""
                 };
 
-                const aav = parseCurrencyString(r[20]);
-                const remaining = extractNumber(r[22]);
-                const expiryType = r[23] || "UFA";
+                let aav = parseCurrencyString(r[20]);
+                let remaining = extractNumber(r[22]);
+                let expiryType = r[23] || "UFA";
                 
                 const teamRank = r[24] && !isNaN(parseInt(r[24])) ? parseInt(r[24]) : null;
                 const top100Rank = r[25] && !isNaN(parseInt(r[25])) ? parseInt(r[25]) : null;
                 
-                const cbtList = [parseCurrencyString(r[26]), parseCurrencyString(r[27]), parseCurrencyString(r[28]), parseCurrencyString(r[29]), parseCurrencyString(r[30])];
-                const cbtValue = cbtList[0] || aav || 0;
+                let cbtList = [parseCurrencyString(r[26]), parseCurrencyString(r[27]), parseCurrencyString(r[28]), parseCurrencyString(r[29]), parseCurrencyString(r[30])];
+                let cbtValue = cbtList[0] || aav || 0;
                 
                 const is40Man = status === '40-Man' || status === '26-Man Active' || status.includes('60-day');
                 const isMajors = status === '26-Man Active' || injury.match(/60|15|10|7/) || status === '40-Man';
@@ -290,21 +291,27 @@
                 let faStatus = 'Under Contract';
                 if (mode === 'offseason') {
                     const expLow = (expiryType || "").toLowerCase();
-                    // Rule: If Sheet Column W (remaining) is 1 (or 0), they are exclusively in FA Hub until signed.
                     if (remaining <= 1) {
                         if (status === 'Minors' || level === 'Minors' || expLow.includes('minor')) {
-                            faStatus = 'Under Contract'; // Auto-tender all MiLB players
+                            faStatus = 'Under Contract'; 
+                        } else if (expLow.includes('pre-arb') || expLow.includes('auto')) {
+                            faStatus = 'Under Contract'; 
+                            aav = (aav || 740000) + 25000;
+                            cbtValue = aav;
+                            cbtList = [aav, aav, aav, aav, aav];
+                            remaining = 2; 
+                            const nextSvc = svcTime + 1;
+                            expiryType = nextSvc < 2 ? 'Pre-Arb' : (nextSvc < 5 ? 'Arb' : 'UFA');
                         } else if (expLow.includes('opt')) {
                             faStatus = 'Option';
-                        } else if (expLow.includes('arb') || expLow.includes('pre-arb') || expLow.includes('auto')) {
-                            faStatus = 'Arb'; // Forces pre-arb/arb players into the Arb tab for tendering
+                        } else if (expLow.includes('arb')) {
+                            faStatus = 'Arb'; 
                         } else {
                             faStatus = 'UFA';
                         }
                     }
                 }
 
-                // Rule: Display 1 less year remaining since it's jumping to the offseason
                 const displayRemaining = remaining > 0 ? remaining - 1 : 0;
 
                 let fieldSpot = 'Minors';
@@ -337,7 +344,7 @@
                 }
 
                 roster.push({
-                    id: String(rawId), name: rawName, initials, position: pos, age, level, rosterStatus: status, injury,
+                    id: String(rawId), name: rawName, initials, position: pos, age, level, rosterStatus: status, injury, svcTime,
                     optionsLeft, contractStatus: expiryType, aav, remaining: displayRemaining, expiryType, cbtValue, cbtList, teamRank, top100Rank, is40Man,
                     stats, faStatus, fieldSpot, battingOrder, pitchingOrder, originalTeamId: team.id, acquiredVia: 'Draft'
                 });
@@ -488,6 +495,7 @@
                             occupant.battingOrder = player.fieldSpot === 'Lineup' ? player.battingOrder : null;
                             occupant.fieldSpot = player.fieldSpot === 'Lineup' ? 'Lineup' : 'Bench';
                         }
+                        player.pitchingOrder = null;
                         player.battingOrder = parseInt(targetId);
                         player.fieldSpot = 'Lineup';
                         player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
@@ -498,6 +506,7 @@
                             occupant.pitchingOrder = player.fieldSpot === 'Rotation' ? player.pitchingOrder : null;
                             occupant.fieldSpot = player.fieldSpot === 'Rotation' ? 'Rotation' : 'Bullpen';
                         }
+                        player.battingOrder = null;
                         player.pitchingOrder = newOrder;
                         player.fieldSpot = 'Rotation';
                         player.position = 'SP';
@@ -509,20 +518,24 @@
                             occupant.pitchingOrder = player.fieldSpot === 'Bullpen' ? player.pitchingOrder : null;
                             occupant.fieldSpot = player.fieldSpot === 'Bullpen' ? 'Bullpen' : 'Bench';
                         }
+                        player.battingOrder = null;
                         player.pitchingOrder = newOrder;
                         player.fieldSpot = 'Bullpen';
                         player.position = 'RP';
                         player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
                     } else {
                         if (tIdStr === 'Lineup') {
+                            player.pitchingOrder = null;
                             const used = newRoster.filter(p => p.fieldSpot === 'Lineup').map(p => p.battingOrder).filter(Boolean);
                             let next = 1; while(used.includes(next)) next++; player.battingOrder = next;
                         } else player.battingOrder = null;
                         
                         if (tIdStr === 'Rotation') {
+                            player.battingOrder = null;
                             const used = newRoster.filter(p => p.fieldSpot === 'Rotation').map(p => p.pitchingOrder).filter(Boolean);
                             let next = 1; while(used.includes(next)) next++; player.pitchingOrder = next; player.position = 'SP';
                         } else if (tIdStr === 'Bullpen') {
+                            player.battingOrder = null;
                             const used = newRoster.filter(p => p.fieldSpot === 'Bullpen').map(p => p.pitchingOrder).filter(Boolean);
                             let next = 1; while(used.includes(next)) next++; player.pitchingOrder = next; player.position = 'RP';
                         } else {
@@ -842,6 +855,7 @@
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = roster.find(p => p.fieldSpot === 'Lineup' && p.battingOrder === newOrder);
                         if (occupant) occupant.battingOrder = player.battingOrder || null;
+                        player.pitchingOrder = null;
                         player.fieldSpot = 'Lineup';
                         player.battingOrder = newOrder;
                         player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
@@ -849,6 +863,7 @@
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = roster.find(p => p.fieldSpot === 'Bullpen' && p.pitchingOrder === newOrder);
                         if (occupant) occupant.pitchingOrder = player.pitchingOrder || null;
+                        player.battingOrder = null;
                         player.fieldSpot = 'Bullpen';
                         player.pitchingOrder = newOrder;
                         player.position = 'RP';
@@ -857,6 +872,7 @@
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = roster.find(p => p.fieldSpot === 'Rotation' && p.pitchingOrder === newOrder);
                         if (occupant) occupant.pitchingOrder = player.pitchingOrder || null;
+                        player.battingOrder = null;
                         player.fieldSpot = 'Rotation';
                         player.pitchingOrder = newOrder;
                         player.position = 'SP';
@@ -864,6 +880,7 @@
                     } else if (tIdStr === 'Bench') {
                         player.fieldSpot = 'Bench';
                         player.battingOrder = null;
+                        player.pitchingOrder = null;
                         player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
                     }
                     return { ...prev, roster };
@@ -874,6 +891,23 @@
             const rotation = team.roster?.filter(p => p.fieldSpot === 'Rotation') || [];
             const bullpen = team.roster?.filter(p => p.fieldSpot === 'Bullpen') || [];
             const il = team.roster?.filter(p => p.fieldSpot !== 'Pending FA' && (p.fieldSpot?.includes('IL') || p.injury?.toLowerCase().includes('injured'))) || [];
+
+            const displayTxs = useMemo(() => {
+                const txs = [];
+                let autoCount = 0;
+                if (!team.transactions) return txs;
+                team.transactions.forEach(tx => {
+                    if (tx.msg && tx.msg.includes('Auto-Tendered')) {
+                        autoCount++;
+                    } else {
+                        txs.push(tx);
+                    }
+                });
+                if (autoCount > 0) {
+                    txs.unshift({ type: 'sign', msg: `Auto-Tendered ${autoCount} Prospects & Pre-Arb Players`, logo: `https://www.mlbstatic.com/team-logos/${team.id}.svg` });
+                }
+                return txs;
+            }, [team.transactions, team.id]);
 
             const FieldDepthBox = ({ label, id, left, top }) => {
                 const posPlayers = activeRoster.filter(p => p.position === id || (id === 'SP' && p.fieldSpot === 'Rotation'));
@@ -910,7 +944,7 @@
                     <div className="w-full bg-slate-900/80 border border-slate-800 rounded-lg mb-1 flex flex-col shrink-0 shadow-md max-h-[15vh] overflow-hidden" style={{ maxWidth: 'calc(100vh * 16 / 9)' }}>
                         <div className="text-[10px] font-black text-theme uppercase tracking-widest border-b border-slate-800 py-1 px-3 bg-slate-900/90 z-10 shrink-0">Recent Activity</div>
                         <div className="flex flex-col gap-1 text-xs text-slate-300 overflow-y-auto custom-scrollbar p-2 items-start">
-                            {team.transactions?.map((tx, i) => (
+                            {displayTxs && displayTxs.length > 0 ? displayTxs.map((tx, i) => (
                                 <div key={i} className="flex items-center gap-1.5 shrink-0">
                                     {tx.type === 'trade' ? (
                                         <div className="flex items-center bg-slate-950/50 px-2 py-1 rounded border border-slate-800 text-[0.85cqw] w-max">
@@ -927,7 +961,7 @@
                                         </div>
                                     )}
                                 </div>
-                            )) || <span className="text-slate-500 italic text-[0.85cqw]">No recent transactions</span>}
+                            )) : <span className="text-slate-500 italic text-[0.85cqw]">No recent transactions</span>}
                         </div>
                     </div>
 
@@ -1096,7 +1130,33 @@
             const executeTrade = () => {
                 if (!partnerTeam) return showNotification("Select a partner team", "error");
                 const myNewRoster = myTeam.roster?.filter(p => !myTradeBlock.find(x => x.id === p.id)) || [];
-                const acquired = partnerTradeBlock.map(p => ({ ...p, fieldSpot: ['P','SP','RP'].includes(p.position) ? 'Bullpen' : 'Bench', is40Man: true, rosterStatus: '40-Man' }));
+                
+                const acquired = [];
+                partnerTradeBlock.forEach(p => {
+                    const isPitcher = ['P','SP','RP'].includes(p.position);
+                    const isMinors = p.level === 'Minors' || p.rosterStatus === 'Minors' || p.rosterStatus === '40-Man Minor';
+                    let fSpot = isMinors ? 'Minors' : (isPitcher ? 'Bullpen' : 'Bench');
+                    let rStatus = isMinors ? 'Minors' : '26-Man Active';
+                    let is40 = !isMinors;
+                    if (isMinors && p.is40Man) { fSpot = '40-Man Minor'; rStatus = '40-Man'; is40 = true; }
+
+                    let pOrder = null;
+                    if (fSpot === 'Bullpen') {
+                        const used = [...myNewRoster, ...acquired].filter(x => x.fieldSpot === 'Bullpen').map(x => x.pitchingOrder).filter(Boolean);
+                        let next = 1; while(used.includes(next)) next++;
+                        pOrder = next;
+                    }
+                    
+                    acquired.push({ 
+                        ...p, 
+                        fieldSpot: fSpot, 
+                        is40Man: is40, 
+                        rosterStatus: rStatus,
+                        pitchingOrder: pOrder,
+                        battingOrder: null
+                    });
+                });
+
                 const tradeLog = { type: 'trade', teamA: myTeam, teamB: partnerTeam, receivedByA: partnerTradeBlock, receivedByB: myTradeBlock };
                 setMyTeam({ ...myTeam, roster: [...myNewRoster, ...acquired], transactions: [tradeLog, ...(myTeam.transactions || [])] });
                 setMyTradeBlock([]); setPartnerTradeBlock([]); setPartnerTeam(null);
@@ -1208,36 +1268,27 @@
 
             const handleSignPlayer = (player) => {
                 setMyTeam(prev => {
-                    const newPlayer = {...player, fieldSpot: 'Bench', rosterStatus: '26-Man Active', is40Man: true, teamInfo: undefined, originalTeamId: player.teamInfo.id, acquiredVia: 'FA'};
+                    const isPitcher = ['P', 'SP', 'RP'].includes(player.position);
+                    const isMinors = player.level === 'Minors' || player.rosterStatus === 'Minors' || player.rosterStatus === '40-Man Minor';
+                    let fSpot = isMinors ? 'Minors' : (isPitcher ? 'Bullpen' : 'Bench');
+                    let rStatus = isMinors ? 'Minors' : '26-Man Active';
+                    let is40 = !isMinors;
+                    if (isMinors && player.is40Man) { fSpot = '40-Man Minor'; rStatus = '40-Man'; is40 = true; }
+
+                    let pOrder = null;
+                    if (fSpot === 'Bullpen') {
+                        const used = (prev.roster || []).filter(x => x.fieldSpot === 'Bullpen' && x.id !== player.id).map(x => x.pitchingOrder).filter(Boolean);
+                        let next = 1; while(used.includes(next)) next++;
+                        pOrder = next;
+                    }
+
+                    const newPlayer = {...player, fieldSpot: fSpot, rosterStatus: rStatus, is40Man: is40, pitchingOrder: pOrder, battingOrder: null, teamInfo: undefined, originalTeamId: player.teamInfo.id, acquiredVia: 'FA'};
                     const tx = { type: 'sign', msg: `Signed ${player.name} to a ${player.contractStatus} contract`, logo: `https://www.mlbstatic.com/team-logos/${team.id}.svg` };
-                    return { ...prev, roster: [...prev.roster, newPlayer], transactions: [tx, ...(prev.transactions || [])] };
+                    
+                    const updatedRoster = prev.roster.filter(x => x.id !== newPlayer.id);
+                    return { ...prev, roster: [...updatedRoster, newPlayer], transactions: [tx, ...(prev.transactions || [])] };
                 });
                 showNotification(`Signed ${player.name}!`, 'success');
-            };
-
-            const handleTenderProspects = () => {
-                const prospectsToTender = leagueFaData.filter(p => p.teamInfo.id === team.id && p.faStatus === 'Arb' && !declinedIds.has(p.id.toString()) && !new Set(team.roster.filter(x => x.fieldSpot !== 'Pending FA').map(x => x.id.toString())).has(p.id.toString())).filter(p => {
-                    const exp = (p.expiryType || "").toLowerCase();
-                    return exp.includes('pre-arb') || exp.includes('auto') || p.teamRank || p.top100Rank;
-                });
-                
-                if (prospectsToTender.length === 0) {
-                    return showNotification("No pre-arb players to tender.", "warning");
-                }
-
-                setMyTeam(prev => {
-                    const newRoster = [...prev.roster];
-                    const newTxs = [...(prev.transactions || [])];
-                    
-                    prospectsToTender.forEach(p => {
-                        const newPlayer = {...p, fieldSpot: 'Bench', rosterStatus: '40-Man', is40Man: true, teamInfo: undefined, originalTeamId: team.id, acquiredVia: 'FA', remaining: 1};
-                        newRoster.push(newPlayer);
-                        newTxs.push({ type: 'sign', msg: `Auto-Tendered ${p.name} (Pre-Arb/Prospect)`, logo: `https://www.mlbstatic.com/team-logos/${team.id}.svg` });
-                    });
-                    
-                    return { ...prev, roster: newRoster, transactions: newTxs };
-                });
-                showNotification(`Tendered ${prospectsToTender.length} Prospects!`, 'success');
             };
 
             const myTeamIds = new Set(team.roster.filter(p => p.fieldSpot !== 'Pending FA').map(p => p.id.toString()));
@@ -1311,10 +1362,32 @@
                                         const y = parseInt(offerYears) || 1;
                                         const a = parseInt(offerAav.replace(/\s/g, '')) || 740000;
                                         setMyTeam(prev => {
+                                            const isPitcher = ['P', 'SP', 'RP'].includes(signingPlayer.position);
+                                            const isMinors = signingPlayer.level === 'Minors' || signingPlayer.rosterStatus === 'Minors' || signingPlayer.rosterStatus === '40-Man Minor';
+                                            let fSpot = isMinors ? 'Minors' : (isPitcher ? 'Bullpen' : 'Bench');
+                                            let rStatus = isMinors ? 'Minors' : '26-Man Active';
+                                            let is40 = !isMinors;
+                                            if (isMinors && signingPlayer.is40Man) { fSpot = '40-Man Minor'; rStatus = '40-Man'; is40 = true; }
+
+                                            let pOrder = null;
+                                            if (fSpot === 'Bullpen') {
+                                                const used = (prev.roster || []).filter(x => x.fieldSpot === 'Bullpen' && x.id !== signingPlayer.id).map(x => x.pitchingOrder).filter(Boolean);
+                                                let next = 1; while(used.includes(next)) next++;
+                                                pOrder = next;
+                                            }
+
+                                            let newExpiryType = 'UFA';
+                                            const nextSvc = (signingPlayer.svcTime || 0) + y;
+                                            if (signingPlayer.faStatus === 'Arb' || signingPlayer.faStatus === 'Pre-Arb') {
+                                                newExpiryType = nextSvc < 2 ? 'Pre-Arb' : (nextSvc < 5 ? 'Arb' : 'UFA');
+                                            }
+
                                             const cbtList = Array(5).fill(0).map((_, i) => i < y ? a : 0);
-                                            const newPlayer = {...signingPlayer, fieldSpot: 'Bench', rosterStatus: '26-Man Active', is40Man: true, teamInfo: undefined, originalTeamId: signingPlayer.teamInfo ? signingPlayer.teamInfo.id : team.id, acquiredVia: 'FA', aav: a, cbtValue: a, cbtList, remaining: y, expiryType: 'UFA', contractStatus: `${y} yr, ${formatMoney(y*a)}`};
+                                            const newPlayer = {...signingPlayer, fieldSpot: fSpot, rosterStatus: rStatus, is40Man: is40, pitchingOrder: pOrder, battingOrder: null, teamInfo: undefined, originalTeamId: signingPlayer.teamInfo ? signingPlayer.teamInfo.id : team.id, acquiredVia: 'FA', aav: a, cbtValue: a, cbtList, remaining: y + 1, expiryType: newExpiryType, contractStatus: `${y} yr, ${formatMoney(y*a)}`};
                                             const tx = { type: 'sign', msg: `Signed ${signingPlayer.name} to a ${y}-year, ${formatMoney(y*a)} contract`, logo: `https://www.mlbstatic.com/team-logos/${team.id}.svg` };
-                                            return { ...prev, roster: [...(prev.roster || []), newPlayer], transactions: [tx, ...(prev.transactions || [])] };
+                                            
+                                            const updatedRoster = (prev.roster || []).filter(x => x.id !== newPlayer.id);
+                                            return { ...prev, roster: [...updatedRoster, newPlayer], transactions: [tx, ...(prev.transactions || [])] };
                                         });
                                         showNotification(`Signed ${signingPlayer.name}!`, 'success');
                                         setSigningPlayer(null);
@@ -1350,11 +1423,6 @@
                                     <button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-5 py-1.5 rounded-md font-bold text-xs transition-colors ${activeSubTab === tab ? 'bg-theme text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>{tab}</button>
                                 ))}
                             </div>
-                            {activeSubTab === 'Arb' && (
-                                <button onClick={handleTenderProspects} className="ml-2 bg-theme hover:brightness-110 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md shadow-theme/20 uppercase tracking-wider">
-                                    Tender Pre-Arb & Prospects
-                                </button>
-                            )}
                         </div>
                     </div>
                     <div className="flex-1 w-full max-w-[1600px] mx-auto overflow-x-auto custom-scrollbar">
