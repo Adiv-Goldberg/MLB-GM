@@ -21,6 +21,12 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
         
+        :root {
+            /* Fallback Sky Blue Theme */
+            --team-primary: #38bdf8;
+            --team-secondary: #0ea5e9;
+        }
+
         body { 
             background: #020617; 
             color: #f8fafc; 
@@ -30,13 +36,20 @@
             font-size: 13px;
         }
 
+        /* Dynamic Theme Classes */
+        .text-theme { color: var(--team-primary) !important; }
+        .bg-theme { background-color: var(--team-primary) !important; }
+        .border-theme { border-color: var(--team-primary) !important; }
+        .hover-border-theme:hover { border-color: var(--team-primary) !important; }
+        .group:hover .group-hover\:text-theme { color: var(--team-primary) !important; }
+
         .draggable-card { cursor: pointer; transition: border-color 0.2s ease, transform 0.1s ease; }
         .draggable-card:active { transform: scale(0.98); }
         .draggable-card.dragging { opacity: 0.5; transform: scale(0.95); }
         .card-content-wrapper { pointer-events: none; }
         
         .drop-zone { border: 2px dashed rgba(148, 163, 184, 0.1); border-radius: 0.5rem; transition: all 0.2s ease; }
-        .drop-zone.active { border-color: #38bdf8; background-color: rgba(56, 189, 248, 0.08); box-shadow: 0 0 15px rgba(56, 189, 248, 0.15); }
+        .drop-zone.active { border-color: var(--team-primary); box-shadow: 0 0 15px var(--team-primary); background-color: rgba(255,255,255,0.05); }
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #020617; }
@@ -54,8 +67,8 @@
         }
 
         .spinner {
-            width: 40px; height: 40px; border: 4px solid rgba(56, 189, 248, 0.2);
-            border-top-color: #38bdf8; border-radius: 50%; animation: spin 1s linear infinite;
+            width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--team-primary); border-radius: 50%; animation: spin 1s linear infinite;
         }
         @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
@@ -121,7 +134,7 @@
 
         const Toast = ({ notification }) => {
             if (!notification) return null;
-            const bg = notification.type === 'error' ? 'bg-rose-600' : notification.type === 'warning' ? 'bg-amber-500' : 'bg-sky-600';
+            const bg = notification.type === 'error' ? 'bg-rose-600' : notification.type === 'warning' ? 'bg-amber-500' : 'bg-emerald-600';
             return (
                 <div className={`fixed bottom-6 right-6 px-6 py-3 rounded-xl shadow-2xl z-[9999] text-white font-semibold transition-all duration-300 ${bg} flex items-center gap-3`}>
                     {notification.type === 'success' && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>}
@@ -130,14 +143,14 @@
             );
         };
 
-        const PlayerImage = ({ player, teamInfo, className }) => {
+        const PlayerImage = ({ player, teamInfo, className, style }) => {
             const [hasError, setHasError] = useState(false);
             const mlbUrl = `https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${player.id}/headshot/silo/current`;
             const fallbackUrl = `https://placehold.co/120x120/${teamInfo.color.replace('#','')}/ffffff?text=${player.initials}`;
             return (
                 <img 
                     src={hasError || !player.id || player.id === "N/A" || player.id.toString().startsWith("unk") ? fallbackUrl : mlbUrl} 
-                    onError={() => setHasError(true)} alt={player.name} className={className} crossOrigin="anonymous"
+                    onError={() => setHasError(true)} alt={player.name} className={className} style={style} crossOrigin="anonymous"
                 />
             );
         };
@@ -152,12 +165,12 @@
 
             return (
                 <div
-                    className="draggable-card relative overflow-hidden bg-slate-900 border border-slate-700/60 hover:border-sky-500 rounded-lg w-full flex items-center p-2 gap-2.5 group shadow-sm shrink-0"
+                    className="draggable-card relative overflow-hidden bg-slate-900 border border-slate-700/60 hover-border-theme rounded-lg w-full flex items-center p-2 gap-2.5 group shadow-sm shrink-0"
                     draggable="true"
                     onDragStart={(e) => {
                         e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('playerId', player.id.toString());
-                        e.dataTransfer.setData('sourceTeamId', teamInfo.id.toString());
+                        e.dataTransfer.setData('playerId', String(player.id));
+                        e.dataTransfer.setData('sourceTeamId', String(teamInfo.id));
                         setTimeout(() => e.target.classList.add('dragging'), 0);
                     }}
                     onDragEnd={(e) => e.target.classList.remove('dragging')}
@@ -173,9 +186,9 @@
                     </div>
 
                     <div className="card-content-wrapper flex-1 min-w-0 flex flex-col justify-center">
-                        <div className="font-semibold text-slate-200 text-xs truncate group-hover:text-sky-400 transition-colors">{player.name}</div>
+                        <div className="font-semibold text-slate-200 text-xs truncate group-hover:text-theme transition-colors">{player.name}</div>
                         <div className="flex gap-1 mt-0.5 items-center">
-                            {player.teamRank && <span className="text-[8px] bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1 rounded font-medium">#{player.teamRank}</span>}
+                            {player.teamRank && <span className="text-[8px] bg-theme/20 text-theme border border-theme/30 px-1 rounded font-medium">#{player.teamRank}</span>}
                             {player.top100Rank && <span className="text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded font-medium">T100 #{player.top100Rank}</span>}
                             {player.injury && <span className="text-[8px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1 rounded font-medium">{player.injury.replace('Injured ','')}</span>}
                             {!player.teamRank && !player.top100Rank && !player.injury && <span className="text-[9px] text-slate-400">{player.age}y • {player.expiryType}</span>}
@@ -205,13 +218,13 @@
                 >
                     {label && (
                         <div className="flex justify-between items-center mb-2 px-1 border-b border-slate-800 pb-1">
-                            <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">{label}</span>
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-800/50 px-2 rounded-full">{players.length}</span>
+                            <span className="text-[10px] font-bold text-theme uppercase tracking-wider">{label}</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-800/50 px-2 rounded-full">{players?.length || 0}</span>
                         </div>
                     )}
                     <div className="flex-1 flex flex-col gap-1.5">
-                        {players.map(p => <PlayerCard key={p.id} player={p} teamInfo={teamInfo} onClick={onPlayerClick} />)}
-                        {players.length === 0 && <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-800/50 rounded-lg text-slate-600 text-[10px] uppercase font-bold tracking-wider min-h-[40px]">Empty</div>}
+                        {players?.map(p => <PlayerCard key={p.id} player={p} teamInfo={teamInfo} onClick={onPlayerClick} />)}
+                        {(!players || players.length === 0) && <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-800/50 rounded-lg text-slate-600 text-[10px] uppercase font-bold tracking-wider min-h-[40px]">Empty</div>}
                     </div>
                 </div>
             );
@@ -283,6 +296,7 @@
                     fieldSpot = 'Pending FA';
                 } else if (injury.includes('60')) {
                     fieldSpot = 'IL60';
+                    injury = 'Injured 60-Day';
                 } else if (injury.includes('15') || injury.includes('10')) {
                     fieldSpot = 'IL15';
                 } else if (injury.includes('7')) {
@@ -304,16 +318,16 @@
                 }
 
                 roster.push({
-                    id: rawId, name: rawName, initials, position: pos, age, level, rosterStatus: status, injury,
+                    id: String(rawId), name: rawName, initials, position: pos, age, level, rosterStatus: status, injury,
                     optionsLeft, contractStatus: expiryType, aav, remaining, expiryType, cbtValue, cbtList, teamRank, top100Rank, is40Man,
                     stats, faStatus, fieldSpot, battingOrder, pitchingOrder, originalTeamId: team.id, acquiredVia: 'Draft'
                 });
             });
-
+            
             return { ...team, roster, deadMoney: 0, transactions: [] };
         };
 
-        const TopNavbar = ({ team, activeTab, setActiveTab, exportSave, clearSession }) => {
+        const TopNavbar = ({ team, activeTab, setActiveTab, exportSave, clearSession, handleLoadGame }) => {
             const tabs = [
                 { id: 'roster', label: 'Dashboard' },
                 { id: 'field', label: 'Field View' },
@@ -341,9 +355,16 @@
                             ))}
                         </nav>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <button onClick={exportSave} className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shadow-sm">
-                            Save Game
+                    <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg p-1 shadow-sm">
+                        <label className="hover:bg-slate-800 text-slate-200 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Load
+                            <input type="file" accept=".mlbgm" className="hidden" onChange={handleLoadGame} />
+                        </label>
+                        <div className="w-px h-4 bg-slate-700"></div>
+                        <button onClick={exportSave} className="hover:bg-slate-800 text-slate-200 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Save
                         </button>
                     </div>
                 </header>
@@ -390,20 +411,20 @@
                     {loadingTeam && (
                         <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center">
                             <div className="spinner mb-4"></div>
-                            <h2 className="text-xl font-bold text-sky-400 uppercase tracking-widest">Loading Analytics...</h2>
+                            <h2 className="text-xl font-bold text-theme uppercase tracking-widest">Loading Analytics...</h2>
                         </div>
                     )}
                     
                     <div className="flex items-center gap-4 mb-8 mt-10">
                         <img src="https://1000logos.net/wp-content/uploads/2017/04/MLB-Logo.png" className="w-16 h-10 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]" />
-                        <h1 className="text-5xl font-black text-slate-100 tracking-tighter drop-shadow-md">MLB<span className="text-sky-500">GM</span></h1>
+                        <h1 className="text-5xl font-black text-slate-100 tracking-tighter drop-shadow-md">MLB<span className="text-theme">GM</span></h1>
                     </div>
                     
                     <div className="glass-panel rounded-2xl p-8 mb-10 w-full max-w-xl text-center shadow-2xl">
                         <label className="text-slate-400 font-bold uppercase text-xs tracking-widest block mb-4">Select 2026 Sandbox</label>
                         <div className="flex gap-4 justify-center mb-6">
-                            <button onClick={() => setMode('offseason')} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${mode === 'offseason' ? 'bg-sky-600 text-white shadow-[0_0_15px_rgba(14,165,233,0.4)]' : 'bg-slate-900 text-slate-400 border border-slate-700 hover:text-white hover:bg-slate-800'}`}>Offseason Mode</button>
-                            <button onClick={() => setMode('tdl')} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${mode === 'tdl' ? 'bg-sky-600 text-white shadow-[0_0_15px_rgba(14,165,233,0.4)]' : 'bg-slate-900 text-slate-400 border border-slate-700 hover:text-white hover:bg-slate-800'}`}>Trade Deadline Mode</button>
+                            <button onClick={() => setMode('offseason')} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${mode === 'offseason' ? 'bg-theme text-white shadow-[0_0_15px_rgba(56,189,248,0.4)]' : 'bg-slate-900 text-slate-400 border border-slate-700 hover:text-white hover:bg-slate-800'}`}>Offseason Mode</button>
+                            <button onClick={() => setMode('tdl')} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${mode === 'tdl' ? 'bg-theme text-white shadow-[0_0_15px_rgba(56,189,248,0.4)]' : 'bg-slate-900 text-slate-400 border border-slate-700 hover:text-white hover:bg-slate-800'}`}>Trade Deadline Mode</button>
                         </div>
                         <div className="border-t border-slate-800/50 pt-6 flex flex-col items-center">
                             <label className="text-slate-300 border border-slate-700 hover:bg-slate-800 px-6 py-2.5 rounded-lg font-bold uppercase tracking-wider cursor-pointer transition-colors text-xs flex items-center gap-2">
@@ -416,7 +437,7 @@
 
                     <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-4 w-full max-w-5xl pb-10">
                         {TEAM_DB_INIT.map(t => (
-                            <div key={t.id} onClick={() => handleTeamClick(t)} className="bg-slate-900 border border-slate-800/80 p-5 rounded-xl hover:border-sky-500 hover:bg-slate-800 cursor-pointer transition-all flex flex-col items-center group shadow-md hover:shadow-[0_0_20px_rgba(14,165,233,0.15)]">
+                            <div key={t.id} onClick={() => handleTeamClick(t)} className="bg-slate-900 border border-slate-800/80 p-5 rounded-xl hover-border-theme hover:bg-slate-800 cursor-pointer transition-all flex flex-col items-center group shadow-md hover:shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                                 <img src={`https://www.mlbstatic.com/team-logos/${t.id}.svg`} className="w-14 h-14 mb-3 group-hover:scale-110 transition-transform drop-shadow-md" />
                                 <h3 className="text-[10px] font-bold text-slate-400 text-center uppercase tracking-wider group-hover:text-white">{t.name}</h3>
                             </div>
@@ -437,7 +458,7 @@
             const handleDrop = (playerId, targetId, sourceTeamId) => {
                 setTeam(prev => {
                     const newRoster = [...prev.roster];
-                    const player = newRoster.find(p => p.id.toString() === playerId.toString());
+                    const player = newRoster.find(p => p.id === String(playerId));
                     if (!player) return prev;
 
                     const tIdStr = String(targetId);
@@ -450,7 +471,7 @@
                         }
                         player.battingOrder = parseInt(targetId);
                         player.fieldSpot = 'Lineup';
-                        player.is40Man = true; player.rosterStatus = '26-Man Active';
+                        player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
                     } else if (tIdStr.startsWith('Rot-')) {
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = newRoster.find(p => p.pitchingOrder === newOrder && p.fieldSpot === 'Rotation');
@@ -461,7 +482,7 @@
                         player.pitchingOrder = newOrder;
                         player.fieldSpot = 'Rotation';
                         player.position = 'SP';
-                        player.is40Man = true; player.rosterStatus = '26-Man Active';
+                        player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
                     } else if (tIdStr.startsWith('Pen-')) {
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = newRoster.find(p => p.pitchingOrder === newOrder && p.fieldSpot === 'Bullpen');
@@ -472,7 +493,7 @@
                         player.pitchingOrder = newOrder;
                         player.fieldSpot = 'Bullpen';
                         player.position = 'RP';
-                        player.is40Man = true; player.rosterStatus = '26-Man Active';
+                        player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
                     } else {
                         if (tIdStr === 'Lineup') {
                             const used = newRoster.filter(p => p.fieldSpot === 'Lineup').map(p => p.battingOrder).filter(Boolean);
@@ -499,10 +520,10 @@
                         player.injury = ""; 
                     }
                     
-                    if (tIdStr === 'Minors') { player.is40Man = false; player.rosterStatus = 'Minors'; }
-                    else if (tIdStr === '40-Man Minor') { player.is40Man = true; player.rosterStatus = '40-Man'; }
+                    if (tIdStr === 'Minors') { player.is40Man = false; player.rosterStatus = 'Minors'; player.injury = ""; }
+                    else if (tIdStr === '40-Man Minor') { player.is40Man = true; player.rosterStatus = '40-Man'; player.injury = ""; }
                     else if (tIdStr !== 'Lineup' && !isNaN(targetId) === false && !tIdStr.startsWith('Rot-') && !tIdStr.startsWith('Pen-') && !tIdStr.startsWith('IL')) { 
-                        player.is40Man = true; player.rosterStatus = '26-Man Active'; 
+                        player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = ""; 
                     }
 
                     return { ...prev, roster: newRoster };
@@ -514,13 +535,13 @@
                 const playerId = activePlayerModal.id;
                 setTeam(prev => {
                     const roster = [...prev.roster];
-                    const p = roster.find(x => x.id.toString() === playerId.toString());
+                    const p = roster.find(x => String(x.id) === String(playerId));
                     if (!p) return prev;
 
                     if (action === 'role') {
                         p.fieldSpot = meta;
-                        p.battingOrder = meta === 'Lineup' ? (roster.filter(x => x.fieldSpot === 'Lineup').length + 1) : null;
-                        p.pitchingOrder = ['Rotation','Bullpen'].includes(meta) ? (roster.filter(x => x.fieldSpot === meta).length + 1) : null;
+                        p.battingOrder = meta === 'Lineup' ? ((roster.filter(x => x.fieldSpot === 'Lineup') || []).length + 1) : null;
+                        p.pitchingOrder = ['Rotation','Bullpen'].includes(meta) ? ((roster.filter(x => x.fieldSpot === meta) || []).length + 1) : null;
                         p.is40Man = true; p.rosterStatus = '26-Man Active'; p.injury = "";
                         showNotification(`Moved ${p.name} to ${meta}`, 'success');
                     } else if (action === 'minors') {
@@ -534,7 +555,7 @@
                     } else if (action === 'promote') {
                         p.fieldSpot = ['P','SP','RP'].includes(p.position) ? 'Bullpen' : 'Bench';
                         p.is40Man = true; p.rosterStatus = '26-Man Active'; p.injury = "";
-                        if(p.fieldSpot === 'Bullpen') p.pitchingOrder = roster.filter(x=>x.fieldSpot==='Bullpen').length + 1;
+                        if(p.fieldSpot === 'Bullpen') p.pitchingOrder = (roster.filter(x=>x.fieldSpot==='Bullpen') || []).length + 1;
                         showNotification(`Promoted ${p.name}`, 'success');
                     } else if (action === 'il') {
                         p.fieldSpot = meta; p.rosterStatus = meta;
@@ -546,15 +567,15 @@
                 setActivePlayerModal(null);
             };
 
-            const lineupPlayers = team.roster.filter(p => p.fieldSpot === 'Lineup');
-            const bench = team.roster.filter(p => p.fieldSpot === 'Bench');
-            const rotation = team.roster.filter(p => p.fieldSpot === 'Rotation');
-            const bullpen = team.roster.filter(p => p.fieldSpot === 'Bullpen');
+            const lineupPlayers = team.roster?.filter(p => p.fieldSpot === 'Lineup') || [];
+            const bench = team.roster?.filter(p => p.fieldSpot === 'Bench') || [];
+            const rotation = team.roster?.filter(p => p.fieldSpot === 'Rotation') || [];
+            const bullpen = team.roster?.filter(p => p.fieldSpot === 'Bullpen') || [];
             
-            let il = team.roster.filter(p => p.fieldSpot.startsWith('IL') || p.injury.toLowerCase().includes('injured') || p.rosterStatus.startsWith('IL'));
-            if (ilFilter !== 'All') il = il.filter(p => p.fieldSpot === ilFilter || p.rosterStatus === ilFilter || p.injury.includes(ilFilter.replace('IL','')));
+            let il = team.roster?.filter(p => p.fieldSpot?.startsWith('IL') || p.injury?.toLowerCase().includes('injured') || p.rosterStatus?.startsWith('IL')) || [];
+            if (ilFilter !== 'All') il = il.filter(p => p.fieldSpot === ilFilter || p.rosterStatus === ilFilter || p.injury?.includes(ilFilter.replace('IL','')));
             
-            let minors = team.roster.filter(p => ['Minors', '40-Man Minor'].includes(p.fieldSpot));
+            let minors = team.roster?.filter(p => ['Minors', '40-Man Minor'].includes(p.fieldSpot)) || [];
             if (farmSearch) minors = minors.filter(p => p.name.toLowerCase().includes(farmSearch.toLowerCase()));
             if (farmFilter === 'Top 30') minors = minors.filter(p => p.teamRank && p.teamRank <= 30);
             else if (farmFilter === 'Top 100') minors = minors.filter(p => p.top100Rank && p.top100Rank <= 100);
@@ -569,14 +590,14 @@
             });
 
             const activeCount = lineupPlayers.length + bench.length + rotation.length + bullpen.length;
-            const count40 = team.roster.filter(p => p.is40Man && !p.fieldSpot.startsWith('IL') && p.fieldSpot !== 'Pending FA').length;
-            const payroll = team.roster.filter(p => p.fieldSpot !== 'Pending FA').reduce((sum, p) => sum + p.cbtValue, 0) + team.deadMoney;
+            const count40 = team.roster?.filter(p => p.is40Man && !p.fieldSpot?.startsWith('IL') && p.fieldSpot !== 'Pending FA').length || 0;
+            const payroll = team.roster?.filter(p => p.fieldSpot !== 'Pending FA').reduce((sum, p) => sum + p.cbtValue, 0) + (team.deadMoney || 0);
 
             return (
                 <div className="w-full h-full overflow-y-auto custom-scrollbar relative" id="scroll-container">
                     <div className="sticky top-0 z-[50] w-full px-6 py-3 flex justify-between items-center bg-slate-950 border-b border-slate-800/80 shadow-md">
                         <div className="flex gap-4 items-center">
-                            <span className="text-slate-300 font-bold uppercase tracking-wider text-xs">Roster Dashboard</span>
+                            <span className="text-theme font-bold uppercase tracking-wider text-xs">Roster Dashboard</span>
                         </div>
                         <div className="flex gap-2">
                             <div className="bg-slate-900 px-4 py-1.5 rounded-lg border border-slate-700/50 text-center"><div className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Active Roster</div><div className={`text-sm font-black ${activeCount>26?'text-rose-400':'text-slate-100'}`}>{activeCount}/26</div></div>
@@ -596,11 +617,11 @@
                                     </div>
                                 </div>
                                 <div className="space-y-2 mb-5">
-                                    <div className="text-[10px] text-sky-400 font-bold uppercase tracking-widest mb-2">Move to Role</div>
+                                    <div className="text-[10px] text-theme font-bold uppercase tracking-widest mb-2">Move to Role</div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <button onClick={() => handlePlayerAction('role', 'Rotation')} className="bg-slate-800 hover:bg-sky-600/30 border border-slate-700 hover:border-sky-500 py-2 rounded-lg text-xs font-bold text-slate-300 transition-colors">Rotation</button>
-                                        <button onClick={() => handlePlayerAction('role', 'Bullpen')} className="bg-slate-800 hover:bg-sky-600/30 border border-slate-700 hover:border-sky-500 py-2 rounded-lg text-xs font-bold text-slate-300 transition-colors">Bullpen</button>
-                                        <button onClick={() => handlePlayerAction('role', 'Bench')} className="bg-slate-800 hover:bg-sky-600/30 border border-slate-700 hover:border-sky-500 py-2 rounded-lg text-xs font-bold text-slate-300 transition-colors">Bench</button>
+                                        <button onClick={() => handlePlayerAction('role', 'Rotation')} className="bg-slate-800 hover-bg-theme border border-slate-700 hover-border-theme py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition-colors">Rotation</button>
+                                        <button onClick={() => handlePlayerAction('role', 'Bullpen')} className="bg-slate-800 hover-bg-theme border border-slate-700 hover-border-theme py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition-colors">Bullpen</button>
+                                        <button onClick={() => handlePlayerAction('role', 'Bench')} className="bg-slate-800 hover-bg-theme border border-slate-700 hover-border-theme py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition-colors">Bench</button>
                                         {['Minors', '40-Man Minor'].includes(activePlayerModal.fieldSpot) ? (
                                             <button onClick={() => handlePlayerAction('promote')} className="bg-emerald-900/50 hover:bg-emerald-600 border border-emerald-700 py-2 rounded-lg text-xs font-bold text-emerald-300 hover:text-white transition-colors">Promote to MLB</button>
                                         ) : (
@@ -620,17 +641,35 @@
                     )}
 
                     <div className="p-6 max-w-[1600px] mx-auto">
-                        {team.transactions && team.transactions.length > 0 && (
+                        {team.transactions?.length > 0 && (
                             <div className="glass-panel p-4 rounded-2xl mb-6 flex flex-col max-h-[220px]">
                                 <h3 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-3 border-b border-slate-700/50 pb-2">Detailed Transaction Log</h3>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2">
                                     {team.transactions.map((tx, i) => (
                                         <div key={i} className="flex gap-4">
                                             {tx.type === 'trade' ? (
-                                                <div className="flex flex-1 items-center justify-between text-xs bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
-                                                    <div className="flex items-center gap-2"><span className="text-sky-400 font-bold">{tx.teamA.abbr}</span> gets: <span className="text-slate-200">{tx.receivedByA.map(p=>`${p.name} (${p.position})`).join(', ')}</span></div>
-                                                    <span className="text-slate-500 font-bold">↔</span>
-                                                    <div className="flex items-center gap-2"><span className="text-amber-400 font-bold">{tx.teamB.abbr}</span> gets: <span className="text-slate-200">{tx.receivedByB.map(p=>`${p.name} (${p.position})`).join(', ')}</span></div>
+                                                <div className="flex w-full items-stretch justify-between text-xs bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
+                                                    <div className="flex items-center justify-center w-[60px] shrink-0 border-r border-slate-800/50 pr-2">
+                                                        <img src={`https://www.mlbstatic.com/team-logos/${tx.teamA?.id}.svg`} className="w-12 h-12 drop-shadow-md" crossOrigin="anonymous" />
+                                                    </div>
+                                                    <div className="flex flex-col items-center justify-center flex-1 px-4 min-w-0 gap-1.5 py-1">
+                                                        {tx.receivedByA?.map(p => (
+                                                            <div key={`A-${p.id}`} className="text-slate-200 text-[11px] font-bold whitespace-nowrap text-center">
+                                                                <span className="text-sky-400 mr-1">►</span>{p.name} <span className="text-slate-500 font-medium ml-1">({p.position})</span>
+                                                            </div>
+                                                        ))}
+                                                        {tx.receivedByA?.length > 0 && tx.receivedByB?.length > 0 && (
+                                                            <div className="w-1/2 h-px bg-slate-700/50 my-1"></div>
+                                                        )}
+                                                        {tx.receivedByB?.map(p => (
+                                                            <div key={`B-${p.id}`} className="text-slate-200 text-[11px] font-bold whitespace-nowrap text-center">
+                                                                <span className="text-amber-400 mr-1">◄</span>{p.name} <span className="text-slate-500 font-medium ml-1">({p.position})</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="flex items-center justify-center w-[60px] shrink-0 border-l border-slate-800/50 pl-2">
+                                                        <img src={`https://www.mlbstatic.com/team-logos/${tx.teamB?.id}.svg`} className="w-12 h-12 drop-shadow-md" crossOrigin="anonymous" />
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-1 items-center gap-3 text-xs bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
@@ -648,7 +687,7 @@
                             <div className="flex flex-col gap-6">
                                 <div className="glass-panel p-4 rounded-2xl">
                                     <div className="flex justify-between items-center mb-3 px-1 border-b border-slate-700/50 pb-2">
-                                        <h3 className="text-xs font-bold text-sky-400 uppercase tracking-widest">Starting Lineup</h3>
+                                        <h3 className="text-xs font-bold text-theme uppercase tracking-widest">Starting Lineup</h3>
                                         <span className="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{lineupPlayers.length}/9</span>
                                     </div>
                                     <div className="flex flex-col gap-1.5">
@@ -656,7 +695,7 @@
                                             const p = lineupPlayers.find(x => x.battingOrder === slotNum);
                                             return (
                                                 <div key={slotNum} className="flex items-center gap-2" onDrop={(e) => { e.preventDefault(); handleDrop(e.dataTransfer.getData('playerId'), slotNum, e.dataTransfer.getData('sourceTeamId')); }} onDragOver={(e) => e.preventDefault()}>
-                                                    <div className="w-6 text-center font-black text-xs text-sky-500/70">{slotNum}</div>
+                                                    <div className="w-6 text-center font-black text-xs text-theme/70">#{slotNum}</div>
                                                     <div className="flex-1 bg-slate-900/50 border border-slate-800/80 rounded-lg min-h-[46px]">
                                                         {p ? <PlayerCard player={p} teamInfo={team} onClick={setActivePlayerModal} /> : <div className="h-full flex items-center justify-center text-[10px] text-slate-600 font-bold uppercase tracking-wider">Empty Spot</div>}
                                                     </div>
@@ -673,7 +712,7 @@
                             <div className="flex flex-col gap-6">
                                 <div className="glass-panel p-4 rounded-2xl">
                                     <div className="flex justify-between items-center mb-3 px-1 border-b border-slate-700/50 pb-2">
-                                        <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Starting Rotation</h3>
+                                        <h3 className="text-xs font-bold text-theme uppercase tracking-widest">Starting Rotation</h3>
                                         <span className="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{rotation.length}/5</span>
                                     </div>
                                     <div className="flex flex-col gap-1.5">
@@ -681,7 +720,7 @@
                                             const p = rotation.find(x => x.pitchingOrder === slotNum);
                                             return (
                                                 <div key={slotNum} className="flex items-center gap-2" onDrop={(e) => { e.preventDefault(); handleDrop(e.dataTransfer.getData('playerId'), `Rot-${slotNum}`, e.dataTransfer.getData('sourceTeamId')); }} onDragOver={(e) => e.preventDefault()}>
-                                                    <div className="w-8 text-center font-black text-[10px] text-emerald-500/70">SP{slotNum}</div>
+                                                    <div className="w-8 text-center font-black text-[10px] text-theme/70">SP{slotNum}</div>
                                                     <div className="flex-1 bg-slate-900/50 border border-slate-800/80 rounded-lg min-h-[46px]">
                                                         {p ? <PlayerCard player={p} teamInfo={team} onClick={setActivePlayerModal} /> : <div className="h-full flex items-center justify-center text-[10px] text-slate-600 font-bold uppercase tracking-wider">Empty Spot</div>}
                                                     </div>
@@ -692,7 +731,7 @@
                                 </div>
                                 <div className="glass-panel p-4 rounded-2xl flex-1">
                                     <div className="flex justify-between items-center mb-3 px-1 border-b border-slate-700/50 pb-2">
-                                        <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest">Bullpen</h3>
+                                        <h3 className="text-xs font-bold text-theme uppercase tracking-widest">Bullpen</h3>
                                         <span className="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{bullpen.length}/8</span>
                                     </div>
                                     <div className="flex flex-col gap-1.5">
@@ -701,7 +740,7 @@
                                             const label = slotNum === 1 ? 'CL' : slotNum <= 3 ? 'SU' : 'RP';
                                             return (
                                                 <div key={slotNum} className="flex items-center gap-2" onDrop={(e) => { e.preventDefault(); handleDrop(e.dataTransfer.getData('playerId'), `Pen-${slotNum}`, e.dataTransfer.getData('sourceTeamId')); }} onDragOver={(e) => e.preventDefault()}>
-                                                    <div className="w-8 text-center font-black text-[10px] text-amber-500/70">{label}</div>
+                                                    <div className="w-8 text-center font-black text-[10px] text-theme/70">{label}</div>
                                                     <div className="flex-1 bg-slate-900/50 border border-slate-800/80 rounded-lg min-h-[46px]">
                                                         {p ? <PlayerCard player={p} teamInfo={team} onClick={setActivePlayerModal} /> : <div className="h-full flex items-center justify-center text-[10px] text-slate-600 font-bold uppercase tracking-wider">Empty Spot</div>}
                                                     </div>
@@ -720,8 +759,20 @@
                                             <option value="All">Show All</option><option value="IL7">7-Day IL</option><option value="IL15">15-Day IL</option><option value="IL60">60-Day IL</option>
                                         </select>
                                     </div>
-                                    <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                                        <DropZone id={ilFilter === 'All' ? 'IL15' : ilFilter} players={il} onDrop={handleDrop} teamInfo={team} onPlayerClick={setActivePlayerModal} className="!border-none !bg-transparent !p-0" />
+                                    <div 
+                                        className="flex-1 overflow-y-auto pr-1 drop-zone transition-colors custom-scrollbar"
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            e.currentTarget.classList.remove('active');
+                                            handleDrop(e.dataTransfer.getData('playerId'), ilFilter === 'All' ? 'IL15' : ilFilter, e.dataTransfer.getData('sourceTeamId'));
+                                        }}
+                                        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                                        onDragEnter={(e) => { e.preventDefault(); e.currentTarget.classList.add('active', '!border-rose-500', '!bg-rose-950/20'); }}
+                                        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('active', '!border-rose-500', '!bg-rose-950/20'); }}
+                                    >
+                                        <div className="flex flex-col gap-1.5 content-start">
+                                            {il.map(p => <PlayerCard key={p.id} player={p} teamInfo={team} onClick={setActivePlayerModal} />)}
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="glass-panel p-4 rounded-2xl flex flex-col h-[520px]">
@@ -759,7 +810,7 @@
             const handleFieldDrop = (playerId, targetZone) => {
                 setMyTeam(prev => {
                     const roster = [...prev.roster];
-                    const player = roster.find(p => p.id.toString() === playerId.toString());
+                    const player = roster.find(p => p.id.toString() === String(playerId));
                     if (!player) return prev;
 
                     const tIdStr = String(targetZone);
@@ -772,7 +823,7 @@
                         if (occupant) occupant.battingOrder = player.battingOrder || null;
                         player.fieldSpot = 'Lineup';
                         player.battingOrder = newOrder;
-                        player.is40Man = true; player.rosterStatus = '26-Man Active';
+                        player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
                     } else if (tIdStr.startsWith('Pen-')) {
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = roster.find(p => p.fieldSpot === 'Bullpen' && p.pitchingOrder === newOrder);
@@ -780,7 +831,7 @@
                         player.fieldSpot = 'Bullpen';
                         player.pitchingOrder = newOrder;
                         player.position = 'RP';
-                        player.is40Man = true; player.rosterStatus = '26-Man Active';
+                        player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
                     } else if (tIdStr.startsWith('Rot-')) {
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = roster.find(p => p.fieldSpot === 'Rotation' && p.pitchingOrder === newOrder);
@@ -788,34 +839,38 @@
                         player.fieldSpot = 'Rotation';
                         player.pitchingOrder = newOrder;
                         player.position = 'SP';
-                        player.is40Man = true; player.rosterStatus = '26-Man Active';
+                        player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
+                    } else if (tIdStr === 'Bench') {
+                        player.fieldSpot = 'Bench';
+                        player.battingOrder = null;
+                        player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
                     }
                     return { ...prev, roster };
                 });
             };
 
-            const activeRoster = team.roster.filter(p => ['Lineup', 'Bench', 'Rotation', 'Bullpen'].includes(p.fieldSpot));
-            const rotation = team.roster.filter(p => p.fieldSpot === 'Rotation');
-            const bullpen = team.roster.filter(p => p.fieldSpot === 'Bullpen');
-            const il = team.roster.filter(p => p.fieldSpot.includes('IL') || p.injury.toLowerCase().includes('injured'));
+            const activeRoster = team.roster?.filter(p => ['Lineup', 'Bench', 'Rotation', 'Bullpen'].includes(p.fieldSpot)) || [];
+            const rotation = team.roster?.filter(p => p.fieldSpot === 'Rotation') || [];
+            const bullpen = team.roster?.filter(p => p.fieldSpot === 'Bullpen') || [];
+            const il = team.roster?.filter(p => p.fieldSpot?.includes('IL') || p.injury?.toLowerCase().includes('injured')) || [];
 
             const FieldDepthBox = ({ label, id, left, top }) => {
                 const posPlayers = activeRoster.filter(p => p.position === id || (id === 'SP' && p.fieldSpot === 'Rotation'));
                 return (
-                    <div className="absolute border border-blue-900/50 bg-slate-900 shadow-2xl overflow-hidden flex flex-col rounded-md"
-                         style={{ left, top, transform: 'translate(-50%, -50%)', width: '23cqw', maxHeight: '18cqw' }}
+                    <div className="absolute border border-blue-900/50 bg-slate-900 shadow-2xl overflow-hidden flex flex-col rounded-md z-10"
+                         style={{ left, top, transform: 'translate(-50%, -50%)', width: '8.5cqw', maxHeight: '10cqw' }}
                          onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Pos-${id}`); }}
                          onDragOver={(e) => e.preventDefault()}
                     >
-                        <div className="bg-blue-800 text-white font-black uppercase text-center border-b border-blue-900 shrink-0" style={{ fontSize: '0.9cqw', padding: '0.2cqw' }}>{label}</div>
+                        <div className="bg-blue-800 text-white font-black uppercase text-center border-b border-blue-900 shrink-0" style={{ fontSize: '0.8cqw', padding: '0.2cqw' }}>{label}</div>
                         <div className="flex-1 overflow-y-auto p-0.5 custom-scrollbar bg-slate-900 flex flex-col gap-0.5">
                             {posPlayers.map(p => {
                                 const nameLen = p.name.length;
-                                const fontSize = nameLen > 15 ? '0.6cqw' : nameLen > 12 ? '0.7cqw' : '0.85cqw';
+                                const fontSize = nameLen > 15 ? '0.55cqw' : nameLen > 12 ? '0.6cqw' : '0.65cqw';
                                 return (
-                                    <div key={p.id} draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', p.id.toString())}
-                                         className="flex items-center cursor-pointer hover:bg-slate-800 text-slate-200 rounded px-0.5" style={{ padding: '0.15cqw', gap: '0.3cqw' }}>
-                                        <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-950" style={{ width: '1cqw', height: '1cqw' }} />
+                                    <div key={p.id} draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))}
+                                         className="flex items-center cursor-pointer hover:bg-slate-800 text-slate-200 rounded px-0.5" style={{ padding: '0.2cqw', gap: '0.4cqw' }}>
+                                        <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-950" style={{ width: '1.8cqw', height: '1.8cqw' }} />
                                         <span className="truncate font-semibold text-slate-200" style={{ fontSize }}>{p.name}</span>
                                     </div>
                                 )
@@ -827,18 +882,25 @@
 
             return (
                 <div className="w-full h-full bg-[#020617] flex flex-col items-center justify-center p-2 overflow-hidden relative">
-                    <div className="w-full bg-slate-900/80 border border-slate-800 rounded-lg mb-1 px-3 py-1 flex items-center gap-4 shrink-0 max-w-[177vh] shadow-md">
-                        <span className="text-[10px] font-black text-sky-400 uppercase tracking-widest shrink-0 border-r border-slate-800 pr-3">Recent Activity</span>
-                        <div className="flex gap-4 overflow-x-auto custom-scrollbar whitespace-nowrap text-xs text-slate-300">
+                    <div className="w-full bg-slate-900/80 border border-slate-800 rounded-lg mb-1 flex flex-col shrink-0 shadow-md max-h-[15vh] overflow-hidden" style={{ maxWidth: 'calc(100vh * 16 / 9)' }}>
+                        <div className="text-[10px] font-black text-theme uppercase tracking-widest border-b border-slate-800 py-1 px-3 bg-slate-900/90 z-10 shrink-0">Recent Activity</div>
+                        <div className="flex flex-col gap-1 text-xs text-slate-300 overflow-y-auto custom-scrollbar p-2">
                             {team.transactions?.map((tx, i) => (
-                                <div key={i} className="flex items-center gap-1.5 shrink-0">
+                                <div key={i} className="flex items-center gap-1.5 shrink-0 w-full">
                                     {tx.type === 'trade' ? (
-                                        <span><strong className="text-sky-400">{tx.teamA.abbr}</strong> ↔ <strong className="text-amber-400">{tx.teamB.abbr}</strong></span>
+                                        <span className="flex items-center bg-slate-950/50 px-2 py-1 rounded border border-slate-800 w-full text-[0.85cqw] min-w-0">
+                                            <span className="text-theme font-bold truncate shrink-0 max-w-[40%]">{tx.teamA?.abbr} gets {tx.receivedByA?.map(p=>p.name.split(' ').pop()).join(', ')}</span>
+                                            <span className="text-slate-500 font-bold mx-2 shrink-0">↔</span>
+                                            <span className="text-amber-400 font-bold truncate shrink-0 max-w-[40%]">{tx.teamB?.abbr} gets {tx.receivedByB?.map(p=>p.name.split(' ').pop()).join(', ')}</span>
+                                        </span>
                                     ) : (
-                                        <span className="text-emerald-400 font-medium">{tx.msg}</span>
+                                        <span className="text-emerald-400 font-medium w-full bg-slate-950/50 px-2 py-1 rounded border border-slate-800 text-[0.85cqw] flex items-center gap-2 truncate">
+                                            <img src={tx.logo} className="w-[1.4cqw] h-[1.4cqw] drop-shadow-md object-contain shrink-0" crossOrigin="anonymous"/>
+                                            {tx.msg}
+                                        </span>
                                     )}
                                 </div>
-                            )) || <span className="text-slate-500 italic">No recent transactions</span>}
+                            )) || <span className="text-slate-500 italic text-[0.85cqw]">No recent transactions</span>}
                         </div>
                     </div>
 
@@ -848,27 +910,35 @@
                         <div className="h-full relative shadow-inner overflow-hidden border-r border-slate-800 flex flex-col" style={{ width: '56.25cqw' }}>
                             <div className="flex-1 relative overflow-hidden">
                                 <img src="https://i.imgur.com/9QJw2f8.png" className="absolute inset-0 w-full h-full object-cover opacity-90" crossOrigin="anonymous" />
-                                <FieldDepthBox label="C" id="C" left="50%" top="90%" />
-                                <FieldDepthBox label="1B" id="1B" left="76%" top="68%" />
-                                <FieldDepthBox label="2B" id="2B" left="63%" top="45%" />
-                                <FieldDepthBox label="SS" id="SS" left="37%" top="45%" />
-                                <FieldDepthBox label="3B" id="3B" left="24%" top="68%" />
-                                <FieldDepthBox label="LF" id="LF" left="15%" top="25%" />
-                                <FieldDepthBox label="CF" id="CF" left="50%" top="15%" />
-                                <FieldDepthBox label="RF" id="RF" left="85%" top="25%" />
-                                <FieldDepthBox label="DH" id="DH" left="15%" top="85%" />
-                                <FieldDepthBox label="SP" id="SP" left="50%" top="70%" />
+                                <FieldDepthBox label="C" id="C" left="50%" top="88%" />
+                                <FieldDepthBox label="1B" id="1B" left="84%" top="56%" />
+                                <FieldDepthBox label="2B" id="2B" left="68%" top="36%" />
+                                <FieldDepthBox label="SS" id="SS" left="32%" top="36%" />
+                                <FieldDepthBox label="3B" id="3B" left="16%" top="56%" />
+                                <FieldDepthBox label="LF" id="LF" left="16%" top="20%" />
+                                <FieldDepthBox label="CF" id="CF" left="50%" top="12%" />
+                                <FieldDepthBox label="RF" id="RF" left="84%" top="20%" />
+                                <FieldDepthBox label="DH" id="DH" left="14%" top="88%" />
+                                <FieldDepthBox label="SP" id="SP" left="50%" top="64%" />
                             </div>
                             
-                            <div className="h-[12%] bg-rose-950/20 border-t border-rose-900/40 shrink-0 flex items-center px-2 gap-2">
-                                <span className="text-[0.7cqw] font-black uppercase text-rose-400 tracking-wider shrink-0 bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-900/50">IL</span>
-                                <div className="flex-1 flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
-                                    {il.map(p => (
-                                        <div key={p.id} className="bg-rose-950/60 border border-rose-900/50 text-rose-200 rounded px-2 py-0.5 shrink-0 flex items-center gap-1 shadow-sm">
-                                            <PlayerImage player={p} teamInfo={team} className="w-[1cqw] h-[1cqw] rounded-full object-cover bg-slate-950" />
-                                            <span className="font-semibold text-[0.75cqw] truncate">{p.name}</span>
+                            <div className="h-[18%] bg-rose-950/20 border-t border-rose-900/40 shrink-0 flex items-center px-2 gap-2">
+                                <span className="text-[0.8cqw] font-black uppercase text-rose-400 tracking-wider shrink-0 bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-900/50">IL</span>
+                                <div className="flex-1 grid grid-rows-3 grid-flow-col gap-1 overflow-hidden h-full py-1">
+                                    {il.slice(0, 17).map(p => (
+                                        <div key={p.id} className="bg-rose-950/60 border border-rose-900/50 text-rose-200 rounded px-1 flex items-center gap-1 shadow-sm overflow-hidden" style={{ width: '8.5cqw', height: '100%' }}>
+                                            <img src={`https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${p.id}/headshot/silo/current`} 
+                                                 className="rounded-full object-cover bg-slate-950 shrink-0 border border-rose-900/50" 
+                                                 style={{ width: '1.2cqw', height: '1.2cqw' }} 
+                                                 onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/120x120/0f172a/ffffff?text=${p.initials}`; }} crossOrigin="anonymous" />
+                                            <span className="font-semibold truncate" style={{ fontSize: '0.65cqw' }}>{p.name}</span>
                                         </div>
                                     ))}
+                                    {il.length > 17 && (
+                                        <div className="bg-rose-950/40 border border-rose-900/50 rounded flex items-center justify-center text-rose-300 font-bold" style={{ width: '8.5cqw', height: '100%', fontSize: '0.65cqw' }}>
+                                            + {il.length - 17} More
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -885,14 +955,14 @@
                                                  onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Bat-${num}`); }}
                                                  onDragOver={(e) => e.preventDefault()}
                                             >
-                                                <div className="bg-slate-900 text-slate-400 font-black flex justify-center items-center shrink-0 border-r border-slate-800" style={{ width: '2.5cqw', height: '100%', fontSize: '0.85cqw' }}>#{num}</div>
+                                                <div className="bg-slate-900 text-slate-400 font-black flex justify-center items-center shrink-0 border-r border-slate-800" style={{ width: '2cqw', height: '100%', fontSize: '0.8cqw' }}>#{num}</div>
                                                 <div className="flex-1 flex items-center bg-slate-950 h-full">
                                                     {p ? (
-                                                        <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', p.id.toString())} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
-                                                            <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.2cqw', height: '1.2cqw' }} />
-                                                            <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.65cqw' : '0.8cqw' }}>{p.name}</span>
+                                                        <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
+                                                            <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.8cqw', height: '1.8cqw' }} />
+                                                            <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.6cqw' : '0.75cqw' }}>{p.name}</span>
                                                         </div>
-                                                    ) : <span className="text-slate-600 italic" style={{ fontSize: '0.75cqw', padding: '0 0.4cqw' }}>Empty</span>}
+                                                    ) : <span className="text-slate-600 italic" style={{ fontSize: '0.7cqw', padding: '0 0.4cqw' }}>Empty</span>}
                                                 </div>
                                             </div>
                                         )
@@ -903,9 +973,9 @@
                                      onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), 'Bench'); }}
                                      onDragOver={(e) => e.preventDefault()}>
                                      {activeRoster.filter(p => p.fieldSpot === 'Bench').map(p => (
-                                         <div key={p.id} draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', p.id.toString())} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden cursor-pointer hover:bg-slate-900 text-slate-200 shrink-0" style={{ height: '2.8cqw', padding: '0 0.4cqw', gap: '0.4cqw' }}>
-                                             <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.2cqw', height: '1.2cqw' }} />
-                                             <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.65cqw' : '0.8cqw' }}>{p.name}</span>
+                                         <div key={p.id} draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden cursor-pointer hover:bg-slate-900 text-slate-200 shrink-0" style={{ height: '2.8cqw', padding: '0 0.4cqw', gap: '0.4cqw' }}>
+                                             <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.8cqw', height: '1.8cqw' }} />
+                                             <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.6cqw' : '0.75cqw' }}>{p.name}</span>
                                          </div>
                                      ))}
                                 </div>
@@ -922,14 +992,14 @@
                                                  onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Rot-${num}`); }}
                                                  onDragOver={(e) => e.preventDefault()}
                                             >
-                                                <div className="bg-slate-900 text-emerald-500 font-black flex justify-center items-center shrink-0 border-r border-slate-800" style={{ width: '2.5cqw', height: '100%', fontSize: '0.8cqw' }}>SP{num}</div>
+                                                <div className="bg-slate-900 text-emerald-500 font-black flex justify-center items-center shrink-0 border-r border-slate-800" style={{ width: '2cqw', height: '100%', fontSize: '0.7cqw' }}>SP{num}</div>
                                                 <div className="flex-1 flex items-center bg-slate-950 h-full">
                                                     {p ? (
-                                                        <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', p.id.toString())} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
-                                                            <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.2cqw', height: '1.2cqw' }} />
-                                                            <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.65cqw' : '0.8cqw' }}>{p.name}</span>
+                                                        <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
+                                                            <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.8cqw', height: '1.8cqw' }} />
+                                                            <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.6cqw' : '0.75cqw' }}>{p.name}</span>
                                                         </div>
-                                                    ) : <span className="text-slate-600 italic" style={{ fontSize: '0.75cqw', padding: '0 0.4cqw' }}>Empty</span>}
+                                                    ) : <span className="text-slate-600 italic" style={{ fontSize: '0.7cqw', padding: '0 0.4cqw' }}>Empty</span>}
                                                 </div>
                                             </div>
                                         )
@@ -946,14 +1016,14 @@
                                                  onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Pen-${num}`); }}
                                                  onDragOver={(e) => e.preventDefault()}
                                             >
-                                                <div className="bg-slate-900 text-amber-500 font-black flex justify-center items-center shrink-0 border-r border-slate-800" style={{ width: '2.5cqw', height: '100%', fontSize: '0.8cqw' }}>{label}</div>
+                                                <div className="bg-slate-900 text-amber-500 font-black flex justify-center items-center shrink-0 border-r border-slate-800" style={{ width: '2cqw', height: '100%', fontSize: '0.75cqw' }}>{label}</div>
                                                 <div className="flex-1 flex items-center bg-slate-950 h-full">
                                                     {p ? (
-                                                        <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', p.id.toString())} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
-                                                            <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.2cqw', height: '1.2cqw' }} />
-                                                            <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.65cqw' : '0.8cqw' }}>{p.name}</span>
+                                                        <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
+                                                            <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.8cqw', height: '1.8cqw' }} />
+                                                            <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.6cqw' : '0.75cqw' }}>{p.name}</span>
                                                         </div>
-                                                    ) : <span className="text-slate-600 italic" style={{ fontSize: '0.75cqw', padding: '0 0.4cqw' }}>Empty</span>}
+                                                    ) : <span className="text-slate-600 italic" style={{ fontSize: '0.7cqw', padding: '0 0.4cqw' }}>Empty</span>}
                                                 </div>
                                             </div>
                                         )
@@ -997,8 +1067,8 @@
             };
 
             const executeTrade = () => {
-                if (myTradeBlock.length === 0 && partnerTradeBlock.length === 0) return;
-                const myNewRoster = myTeam.roster.filter(p => !myTradeBlock.find(x => x.id === p.id));
+                if (!partnerTeam) return showNotification("Select a partner team", "error");
+                const myNewRoster = myTeam.roster?.filter(p => !myTradeBlock.find(x => x.id === p.id)) || [];
                 const acquired = partnerTradeBlock.map(p => ({ ...p, fieldSpot: ['P','SP','RP'].includes(p.position) ? 'Bullpen' : 'Bench', is40Man: true, rosterStatus: '40-Man' }));
                 const tradeLog = { type: 'trade', teamA: myTeam, teamB: partnerTeam, receivedByA: partnerTradeBlock, receivedByB: myTradeBlock };
                 setMyTeam({ ...myTeam, roster: [...myNewRoster, ...acquired], transactions: [tradeLog, ...(myTeam.transactions || [])] });
@@ -1007,7 +1077,7 @@
             };
 
             const filterPlayers = (roster, block, search, pos, status) => {
-                let available = roster.filter(p => !block.find(x => x.id === p.id) && p.fieldSpot !== 'Pending FA');
+                let available = roster?.filter(p => !block?.find(x => x.id === p.id) && p.fieldSpot !== 'Pending FA') || [];
                 if (search) available = available.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
                 if (pos !== 'All') {
                     if (pos === 'P') available = available.filter(p => ['P','SP','RP'].includes(p.position));
@@ -1044,15 +1114,15 @@
                             </div>
                             <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 custom-scrollbar min-h-0">{myFiltered.map(p => <PlayerCard key={p.id} player={p} teamInfo={myTeam} onClick={() => togglePlayerInTrade(p, myTeam.id)} />)}</div>
                         </div>
-                        <div className="lg:col-span-2 flex flex-col gap-4 h-full shrink-0 min-h-0">
-                            <div className="flex-1 glass-panel rounded-2xl border border-rose-900/30 bg-rose-950/10 p-3 flex flex-col overflow-hidden min-h-0">
+                        <div className="lg:col-span-2 flex flex-col gap-4 h-full shrink-0 min-h-0 overflow-y-auto lg:overflow-visible">
+                            <div className="flex-1 glass-panel rounded-2xl border border-rose-900/30 bg-rose-950/10 p-3 flex flex-col overflow-hidden min-h-[250px]">
                                 <span className="text-[10px] uppercase font-black text-rose-400 mb-2 text-center shrink-0">Trading Away</span>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 min-h-0">
                                     {myTradeBlock.map(p => <PlayerCard key={p.id} player={p} teamInfo={myTeam} onClick={() => togglePlayerInTrade(p, myTeam.id)} />)}
                                 </div>
                             </div>
-                            <button onClick={executeTrade} className="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_20px_rgba(14,165,233,0.2)] disabled:opacity-30 disabled:cursor-not-allowed uppercase shrink-0 transition-all" disabled={myTradeBlock.length===0 && partnerTradeBlock.length===0}>Execute</button>
-                            <div className="flex-1 glass-panel rounded-2xl border border-emerald-900/30 bg-emerald-950/10 p-3 flex flex-col overflow-hidden min-h-0">
+                            <button onClick={executeTrade} disabled={!partnerTeam} className="bg-theme hover:brightness-110 text-white font-black py-4 rounded-xl shadow-[0_0_20px_rgba(56,189,248,0.2)] disabled:opacity-30 disabled:cursor-not-allowed uppercase shrink-0 transition-all">Execute</button>
+                            <div className="flex-1 glass-panel rounded-2xl border border-emerald-900/30 bg-emerald-950/10 p-3 flex flex-col overflow-hidden min-h-[250px]">
                                 <span className="text-[10px] uppercase font-black text-emerald-400 mb-2 text-center shrink-0">Acquiring</span>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-1.5 min-h-0">
                                     {partnerTradeBlock.map(p => <PlayerCard key={p.id} player={p} teamInfo={partnerTeam} onClick={() => togglePlayerInTrade(p, partnerTeam.id)} />)}
@@ -1086,12 +1156,13 @@
             const [searchQuery, setSearchQuery] = useState("");
             const [posFilter, setPosFilter] = useState("All");
             const [teamFilter, setTeamFilter] = useState("All");
+            const [signingPlayer, setSigningPlayer] = useState(null);
 
             useEffect(() => {
                 const fetchFAs = async () => {
                     try {
                         const results = await Promise.all(TEAM_DB_INIT.map(async t => {
-                            try { const data = (t.id === team.id) ? team : await fetchTeamData(t, setupData.year, setupData.mode); return data.roster.filter(p => p.fieldSpot === 'Pending FA').map(p => ({ ...p, teamInfo: t })); } catch(e) { return []; }
+                            try { const data = (t.id === team.id) ? team : await fetchTeamData(t, setupData.year, setupData.mode); return data.roster?.filter(p => p.fieldSpot === 'Pending FA').map(p => ({ ...p, teamInfo: t })) || []; } catch(e) { return []; }
                         }));
                         setLeagueFaData(results.flat());
                     } catch (e) { showNotification("Failed to load FAs", "error"); }
@@ -1105,23 +1176,18 @@
             };
 
             const handleSignPlayer = (player) => {
-                setMyTeam(prev => {
-                    const newPlayer = {...player, fieldSpot: 'Bench', rosterStatus: '26-Man Active', is40Man: true, teamInfo: undefined, originalTeamId: player.teamInfo.id, acquiredVia: 'FA'};
-                    const tx = { type: 'sign', msg: `Signed ${player.name} to a ${player.contractStatus} contract`, logo: `https://www.mlbstatic.com/team-logos/${player.teamInfo.id}.svg` };
-                    return { ...prev, roster: [...prev.roster, newPlayer], transactions: [tx, ...(prev.transactions || [])] };
-                });
-                showNotification(`Signed ${player.name}!`, 'success');
+                setSigningPlayer(player);
             };
 
-            const myTeamIds = new Set(team.roster.map(p => p.id.toString()));
+            const myTeamIds = new Set(team.roster?.map(p => String(p.id)) || []);
             
-            const ufas = leagueFaData.filter(p => p.expiryType === 'UFA' && p.contractStatus !== 'Declined Option' && !myTeamIds.has(p.id.toString()));
-            const arbs = leagueFaData.filter(p => p.teamInfo.id === team.id && p.expiryType === 'Arb' && !myTeamIds.has(p.id.toString()));
-            const opts = leagueFaData.filter(p => p.teamInfo.id === team.id && p.expiryType.toLowerCase().includes('option') && !myTeamIds.has(p.id.toString()));
+            const ufas = leagueFaData.filter(p => p.expiryType === 'UFA' && p.contractStatus !== 'Declined Option' && !myTeamIds.has(String(p.id)));
+            const arbs = leagueFaData.filter(p => p.teamInfo?.id === team.id && p.expiryType === 'Arb' && !myTeamIds.has(String(p.id)));
+            const opts = leagueFaData.filter(p => p.teamInfo?.id === team.id && p.expiryType?.toLowerCase().includes('option') && !myTeamIds.has(String(p.id)));
             let rawList = activeSubTab === 'UFA' ? ufas : activeSubTab === 'Arb' ? arbs : opts;
 
             if (searchQuery) rawList = rawList.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
-            if (teamFilter !== 'All') rawList = rawList.filter(p => p.teamInfo.id === parseInt(teamFilter));
+            if (teamFilter !== 'All') rawList = rawList.filter(p => String(p.teamInfo?.id) === teamFilter);
             if (posFilter !== 'All') {
                 if (posFilter === 'P') rawList = rawList.filter(p => ['P','SP','RP'].includes(p.position));
                 else if (posFilter === 'OF') rawList = rawList.filter(p => ['OF','LF','CF','RF'].includes(p.position));
@@ -1135,7 +1201,7 @@
                     let aVal, bVal;
                     if (sortConfig.key === 'aav') { aVal = a.cbtValue || a.aav || 0; bVal = b.cbtValue || b.aav || 0; }
                     else if (['name', 'age', 'position'].includes(sortConfig.key)) { aVal = a[sortConfig.key]; bVal = b[sortConfig.key]; }
-                    else if (sortConfig.key === 'team') { aVal = a.teamInfo.abbr; bVal = b.teamInfo.abbr; }
+                    else if (sortConfig.key === 'team') { aVal = a.teamInfo?.abbr || ""; bVal = b.teamInfo?.abbr || ""; }
                     else {
                         aVal = parseFloat(a.stats?.[sortConfig.key]) || -9999;
                         bVal = parseFloat(b.stats?.[sortConfig.key]) || -9999;
@@ -1147,7 +1213,45 @@
             }, [rawList, sortConfig]);
 
             return (
-                <div className="flex-1 flex flex-col h-full overflow-y-auto bg-[#020617] p-6">
+                <div className="flex-1 flex flex-col h-full overflow-y-auto bg-[#020617] p-6 relative">
+                    {signingPlayer && (
+                        <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                                <div className="flex items-center gap-4 mb-5 border-b border-slate-800 pb-4">
+                                    <PlayerImage player={signingPlayer} teamInfo={signingPlayer.teamInfo || team} className="w-14 h-14 rounded-full border-2 border-slate-700 object-cover bg-slate-950" />
+                                    <div>
+                                        <h3 className="text-lg font-black text-slate-100 leading-tight">{signingPlayer.name}</h3>
+                                        <p className="text-xs text-slate-400 font-medium">{signingPlayer.position} • Prev AAV: {formatMoney(signingPlayer.cbtValue || signingPlayer.aav)}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-4 mb-6">
+                                    <div>
+                                        <label className="text-[10px] text-theme font-bold uppercase tracking-widest mb-2 block">Contract Length (Years)</label>
+                                        <input type="number" id="contract-years" defaultValue={1} min={1} max={15} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white outline-none focus-border-theme" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mb-2 block">AAV (Salary per year)</label>
+                                        <input type="number" id="contract-aav" defaultValue={signingPlayer.cbtValue || signingPlayer.aav || 740000} step={100000} min={740000} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white outline-none focus:border-emerald-500" />
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setSigningPlayer(null)} className="w-1/2 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors">Cancel</button>
+                                    <button onClick={() => {
+                                        const y = parseInt(document.getElementById('contract-years').value) || 1;
+                                        const a = parseInt(document.getElementById('contract-aav').value) || 740000;
+                                        setMyTeam(prev => {
+                                            const cbtList = Array(5).fill(0).map((_, i) => i < y ? a : 0);
+                                            const newPlayer = {...signingPlayer, fieldSpot: 'Bench', rosterStatus: '26-Man Active', is40Man: true, teamInfo: undefined, originalTeamId: signingPlayer.teamInfo ? signingPlayer.teamInfo.id : team.id, acquiredVia: 'FA', aav: a, cbtValue: a, cbtList, remaining: y, expiryType: 'UFA', contractStatus: `${y} yr, ${formatMoney(y*a)}`};
+                                            const tx = { type: 'sign', msg: `Signed ${signingPlayer.name} to a ${y}-year, ${formatMoney(y*a)} contract`, logo: `https://www.mlbstatic.com/team-logos/${team.id}.svg` };
+                                            return { ...prev, roster: [...(prev.roster || []), newPlayer], transactions: [tx, ...(prev.transactions || [])] };
+                                        });
+                                        showNotification(`Signed ${signingPlayer.name}!`, 'success');
+                                        setSigningPlayer(null);
+                                    }} className="w-1/2 py-3 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors shadow-lg shadow-emerald-900/50">Submit Offer</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className="mb-6 flex flex-wrap justify-between items-end shrink-0 max-w-[1600px] mx-auto w-full gap-4">
                         <div><h2 className="text-3xl font-black text-white tracking-tighter">Free Agency Hub</h2></div>
                         <div className="flex gap-2 flex-wrap items-center">
@@ -1161,7 +1265,7 @@
                             </select>
                             <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-1 ml-2">
                                 {['Options', 'Arb', 'UFA'].map(tab => (
-                                    <button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-5 py-1.5 rounded-md font-bold text-xs transition-colors ${activeSubTab === tab ? 'bg-sky-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>{tab}</button>
+                                    <button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-5 py-1.5 rounded-md font-bold text-xs transition-colors ${activeSubTab === tab ? 'bg-theme text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>{tab}</button>
                                 ))}
                             </div>
                         </div>
@@ -1171,17 +1275,17 @@
                             <table className="w-full text-left text-sm whitespace-nowrap">
                                 <thead className="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-widest border-b border-slate-700/50 cursor-pointer select-none">
                                     <tr>
-                                        <th className="px-6 py-4 font-bold hover:text-white" onClick={()=>handleSort('name')}>Player</th>
+                                        <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('name')}>Player</th>
                                         <th className="px-6 py-4 font-bold">Action</th>
-                                        <th className="px-6 py-4 font-bold hover:text-white" onClick={()=>handleSort('team')}>Team</th>
-                                        <th className="px-6 py-4 font-bold hover:text-white" onClick={()=>handleSort('position')}>Pos</th>
-                                        <th className="px-6 py-4 font-bold hover:text-white" onClick={()=>handleSort('age')}>Age</th>
-                                        <th className="px-6 py-4 font-bold hover:text-sky-400 text-sky-400/80" onClick={()=>handleSort('fWAR')}>fWAR</th>
-                                        <th className="px-6 py-4 font-bold hover:text-white" onClick={()=>handleSort('G')}>G</th>
-                                        <th className="px-6 py-4 font-bold hover:text-white" title="Plate Appearances / Innings Pitched">PA/IP</th>
-                                        <th className="px-6 py-4 font-bold hover:text-white" title="Batting Average / ERA">AVG/ERA</th>
-                                        <th className="px-6 py-4 font-bold hover:text-white" title="On-Base Percentage / WHIP">OBP/WHIP</th>
-                                        <th className="px-6 py-4 font-bold hover:text-white" title="Slugging / Strikeouts">SLG/K</th>
+                                        <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('team')}>Team</th>
+                                        <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('position')}>Pos</th>
+                                        <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('age')}>Age</th>
+                                        <th className="px-6 py-4 font-bold text-theme hover:brightness-125" onClick={()=>handleSort('fWAR')}>fWAR</th>
+                                        <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('G')}>G</th>
+                                        <th className="px-6 py-4 font-bold hover-text-theme" title="Plate Appearances / Innings Pitched">PA/IP</th>
+                                        <th className="px-6 py-4 font-bold hover-text-theme" title="Batting Average / ERA">AVG/ERA</th>
+                                        <th className="px-6 py-4 font-bold hover-text-theme" title="On-Base Percentage / WHIP">OBP/WHIP</th>
+                                        <th className="px-6 py-4 font-bold hover-text-theme" title="Slugging / Strikeouts">SLG/K</th>
                                         <th className="px-6 py-4 font-bold text-right hover:text-emerald-400" onClick={()=>handleSort('aav')}>Prev AAV</th>
                                     </tr>
                                 </thead>
@@ -1201,7 +1305,7 @@
                                                 <td className="px-6 py-3 font-semibold text-slate-400">{pTeam.abbr}</td>
                                                 <td className="px-6 py-3 font-semibold text-slate-300">{p.position}</td>
                                                 <td className="px-6 py-3 font-semibold text-slate-400">{p.age}</td>
-                                                <td className="px-6 py-3 font-black text-sky-400">{p.stats?.fWAR || "-"}</td>
+                                                <td className="px-6 py-3 font-black text-theme">{p.stats?.fWAR || "-"}</td>
                                                 <td className="px-6 py-3 font-semibold text-slate-400">{p.stats?.G || "-"}</td>
                                                 <td className="px-6 py-3 font-semibold text-slate-300">{isP ? p.stats?.IP : p.stats?.PA || "-"}</td>
                                                 <td className="px-6 py-3 font-semibold text-slate-300">{isP ? p.stats?.ERA : p.stats?.AVG || "-"}</td>
@@ -1222,7 +1326,7 @@
         const StatsViewer = ({ team }) => {
             const [activeTab, setActiveTab] = useState('Batters');
             
-            const players = team.roster.filter(p => p.is40Man || p.cbtValue > 0);
+            const players = team.roster?.filter(p => p.is40Man || p.cbtValue > 0) || [];
             const batters = players.filter(p => !['P','SP','RP'].includes(p.position)).sort((a, b) => (parseFloat(b.stats?.fWAR) || 0) - (parseFloat(a.stats?.fWAR) || 0));
             const pitchers = players.filter(p => ['P','SP','RP'].includes(p.position)).sort((a, b) => (parseFloat(b.stats?.fWAR) || 0) - (parseFloat(a.stats?.fWAR) || 0));
 
@@ -1232,7 +1336,7 @@
                         <h2 className="text-3xl font-black text-white tracking-tighter">Team Statistics</h2>
                         <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-1">
                             {['Batters', 'Pitchers'].map(tab => (
-                                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-1.5 rounded-md font-bold text-xs transition-colors ${activeTab === tab ? 'bg-sky-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>{tab}</button>
+                                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-1.5 rounded-md font-bold text-xs transition-colors ${activeTab === tab ? 'bg-theme text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>{tab}</button>
                             ))}
                         </div>
                     </div>
@@ -1261,7 +1365,7 @@
                                                 <th className="px-6 py-4 font-bold">BB</th>
                                             </>
                                         )}
-                                        <th className="px-6 py-4 font-black text-sky-400 text-right">fWAR</th>
+                                        <th className="px-6 py-4 font-black text-theme text-right">fWAR</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/50">
@@ -1290,7 +1394,7 @@
                                                     <td className="px-6 py-3 font-semibold text-slate-300">{p.stats?.BB || "-"}</td>
                                                 </>
                                             )}
-                                            <td className="px-6 py-3 font-black text-sky-400 text-right">{p.stats?.fWAR || "-"}</td>
+                                            <td className="px-6 py-3 font-black text-theme text-right">{p.stats?.fWAR || "-"}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1320,7 +1424,7 @@
                     battingOrder: null, originalTeamId: formData.origTeam === 'FA' ? null : parseInt(formData.origTeam), acquiredVia: formData.origTeam === 'FA' ? 'FA' : 'Trade'
                 };
 
-                setMyTeam(prev => ({ ...prev, roster: [...prev.roster, newPlayer] }));
+                setMyTeam(prev => ({ ...prev, roster: [...(prev.roster || []), newPlayer] }));
                 showNotification(`Injected ${newPlayer.name} to Majors!`, "success");
                 setFormData({ name: '', age: 22, position: 'SP', origTeam: 'FA', aav: 0, length: 1, expiryType: 'Pre-Arb', optionsLeft: 3, top100Rank: '' });
             };
@@ -1331,24 +1435,24 @@
                     <form onSubmit={handleSubmit} className="max-w-xl mx-auto w-full glass-panel border border-slate-800/50 p-8 rounded-2xl shadow-2xl flex flex-col gap-5">
                         <div>
                             <label className="text-xs text-slate-400 font-bold tracking-widest uppercase block mb-2">Player Name</label>
-                            <input type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700/50 p-3 rounded-lg text-white font-bold outline-none focus:border-sky-500 transition-colors" required />
+                            <input type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700/50 p-3 rounded-lg text-white font-bold outline-none focus-border-theme transition-colors" required />
                         </div>
                         <div className="grid grid-cols-2 gap-5">
                             <div>
                                 <label className="text-xs text-slate-400 font-bold tracking-widest uppercase block mb-2">Position</label>
-                                <select value={formData.position} onChange={e=>setFormData({...formData, position: e.target.value})} className="w-full bg-slate-950 border border-slate-700/50 p-3 rounded-lg text-white font-bold outline-none focus:border-sky-500 transition-colors">
+                                <select value={formData.position} onChange={e=>setFormData({...formData, position: e.target.value})} className="w-full bg-slate-950 border border-slate-700/50 p-3 rounded-lg text-white font-bold outline-none focus-border-theme transition-colors">
                                     {['SP', 'RP', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="text-xs text-slate-400 font-bold tracking-widest uppercase block mb-2">Original Team</label>
-                                <select value={formData.origTeam} onChange={e=>setFormData({...formData, origTeam: e.target.value})} className="w-full bg-slate-950 border border-slate-700/50 p-3 rounded-lg text-white font-bold outline-none focus:border-sky-500 transition-colors">
+                                <select value={formData.origTeam} onChange={e=>setFormData({...formData, origTeam: e.target.value})} className="w-full bg-slate-950 border border-slate-700/50 p-3 rounded-lg text-white font-bold outline-none focus-border-theme transition-colors">
                                     <option value="FA">Free Agency (MLB Logo)</option>
                                     {TEAM_DB_INIT.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                 </select>
                             </div>
                         </div>
-                        <button type="submit" className="mt-4 w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-black py-4 rounded-xl uppercase tracking-widest shadow-lg transition-transform active:scale-95">Inject to Majors</button>
+                        <button type="submit" className="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl uppercase tracking-widest shadow-lg transition-transform active:scale-95">Inject to Majors</button>
                     </form>
                 </div>
             );
@@ -1372,12 +1476,42 @@
                 link.href = url; link.click();
             };
 
+            const handleLoadGame = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const state = JSON.parse(event.target.result);
+                        if (!state.teamData || !state.setupData) throw new Error("Invalid Format");
+                        setMyTeam(state.teamData);
+                        setSetupData(state.setupData);
+                        setActiveTab('roster');
+                        showNotification(`Loaded ${state.teamData.name} Save!`, 'success');
+                    } catch (err) {
+                        showNotification("Corrupted save file", "error");
+                    }
+                };
+                reader.readAsText(file);
+            };
+
             const clearSession = () => { setSetupData(null); setMyTeam(null); };
 
             useEffect(() => {
                 const scrollZones = document.querySelectorAll('.custom-scrollbar, #scroll-container');
                 scrollZones.forEach(zone => polyfillAutoScroll(zone));
             }, [activeTab]);
+
+            // Dynamic Theming effect
+            useEffect(() => {
+                if (myTeam) {
+                    document.documentElement.style.setProperty('--team-primary', myTeam.color);
+                    document.documentElement.style.setProperty('--team-secondary', myTeam.secondary);
+                } else {
+                    document.documentElement.style.setProperty('--team-primary', '#38bdf8');
+                    document.documentElement.style.setProperty('--team-secondary', '#0ea5e9');
+                }
+            }, [myTeam]);
 
             const polyfillAutoScroll = (el) => {
                 let scrollInterval;
@@ -1397,7 +1531,7 @@
             return (
                 <div className="flex flex-col h-screen w-screen bg-[#020617] text-slate-100 font-sans overflow-hidden">
                     <Toast notification={notification} />
-                    <TopNavbar team={myTeam} activeTab={activeTab} setActiveTab={setActiveTab} exportSave={exportSave} clearSession={clearSession} />
+                    <TopNavbar team={myTeam} activeTab={activeTab} setActiveTab={setActiveTab} exportSave={exportSave} clearSession={clearSession} handleLoadGame={handleLoadGame} />
                     <main className="flex-1 overflow-hidden relative">
                         {activeTab === 'roster' && <RosterDashboard team={myTeam} setTeam={setMyTeam} setupData={setupData} showNotification={showNotification} />}
                         {activeTab === 'field' && <FieldView team={myTeam} setMyTeam={setMyTeam} showNotification={showNotification} />}
