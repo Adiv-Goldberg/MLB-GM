@@ -182,16 +182,15 @@
 
                     <div className="card-content-wrapper relative shrink-0 w-9 h-9">
                         <PlayerImage player={player} teamInfo={teamInfo} className="w-full h-full rounded-full border border-slate-600 bg-slate-950 object-cover" />
-                        <div className="absolute -bottom-1 -right-1 bg-slate-800 border border-slate-600 text-[8px] font-bold px-1 rounded text-slate-200">{player.position}</div>
+                        <div className="absolute -bottom-1 -right-1 bg-slate-800 border border-slate-600 text-[8px] font-bold px-1 rounded text-slate-200">{['SP', 'RP'].includes(player.position) ? 'P' : player.position}</div>
                     </div>
 
                     <div className="card-content-wrapper flex-1 min-w-0 flex flex-col justify-center">
                         <div className="font-semibold text-slate-200 text-xs truncate group-hover:text-theme transition-colors">{player.name}</div>
                         <div className="flex gap-1 mt-0.5 items-center">
-                            {player.teamRank && <span className="text-[8px] bg-theme/20 text-theme border border-theme/30 px-1 rounded font-medium">#{player.teamRank}</span>}
+                            {player.teamRank && <span className="text-[8px] bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 px-1 rounded font-medium">#{player.teamRank}</span>}
                             {player.top100Rank && <span className="text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded font-medium">T100 #{player.top100Rank}</span>}
-                            {player.injury && <span className="text-[8px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1 rounded font-medium">{player.injury.replace('Injured ','')}</span>}
-                            {!player.teamRank && !player.top100Rank && !player.injury && <span className="text-[9px] text-slate-400">{player.age}y • {player.expiryType}</span>}
+                            {!player.teamRank && !player.top100Rank && <span className="text-[9px] text-slate-400">{player.age}y • {player.expiryType}</span>}
                         </div>
                     </div>
 
@@ -473,7 +472,7 @@
             );
         };
 
-        const RosterDashboard = ({ team, setTeam, setupData, showNotification }) => {
+        const RosterDashboard = ({ team, setTeam, setupData, showNotification, showTxLog, setShowTxLog }) => {
             const [farmSearch, setFarmSearch] = useState('');
             const [farmSort, setFarmSort] = useState('Rank');
             const [minorsFilter, setMinorsFilter] = useState('All');
@@ -494,6 +493,7 @@
                         if (occupant && occupant.id !== player.id) {
                             occupant.battingOrder = player.fieldSpot === 'Lineup' ? player.battingOrder : null;
                             occupant.fieldSpot = player.fieldSpot === 'Lineup' ? 'Lineup' : 'Bench';
+                            if (occupant.fieldSpot === 'Bench' && ['P', 'SP', 'RP'].includes(occupant.position)) occupant.position = 'DH';
                         }
                         player.pitchingOrder = null;
                         player.battingOrder = parseInt(targetId);
@@ -517,6 +517,7 @@
                         if (occupant && occupant.id !== player.id) {
                             occupant.pitchingOrder = player.fieldSpot === 'Bullpen' ? player.pitchingOrder : null;
                             occupant.fieldSpot = player.fieldSpot === 'Bullpen' ? 'Bullpen' : 'Bench';
+                            if (occupant.fieldSpot === 'Bench' && ['P', 'SP', 'RP'].includes(occupant.position)) occupant.position = 'DH';
                         }
                         player.battingOrder = null;
                         player.pitchingOrder = newOrder;
@@ -543,6 +544,7 @@
                         }
                         
                         player.fieldSpot = tIdStr;
+                        if (tIdStr === 'Bench' && ['P', 'SP', 'RP'].includes(player.position)) player.position = 'DH';
                     }
                     
                     if (['IL7', 'IL15', 'IL60'].includes(tIdStr)) {
@@ -585,6 +587,7 @@
                         } else {
                             p.battingOrder = null;
                             p.pitchingOrder = null;
+                            if (['P', 'SP', 'RP'].includes(p.position)) p.position = 'DH';
                         }
                         p.is40Man = true; p.rosterStatus = '26-Man Active'; p.injury = "";
                         showNotification(`Moved ${p.name} to ${meta}`, 'success');
@@ -661,7 +664,7 @@
                                     <PlayerImage player={activePlayerModal} teamInfo={team} className="w-14 h-14 rounded-full border-2 border-slate-700 object-cover bg-slate-950" />
                                     <div>
                                         <h3 className="text-lg font-black text-slate-100 leading-tight">{activePlayerModal.name}</h3>
-                                        <p className="text-xs text-slate-400 font-medium">{activePlayerModal.position} • {formatMoney(activePlayerModal.cbtValue)}</p>
+                                        <p className="text-xs text-slate-400 font-medium">{['SP', 'RP'].includes(activePlayerModal.position) ? 'P' : activePlayerModal.position} • {formatMoney(activePlayerModal.cbtValue)}</p>
                                     </div>
                                 </div>
                                 <div className="space-y-2 mb-5">
@@ -690,46 +693,53 @@
 
                     <div className="p-6 max-w-[1600px] mx-auto">
                         {team.transactions?.length > 0 && (
-                            <div className="glass-panel p-4 rounded-2xl mb-6 flex flex-col max-h-[220px]">
-                                <h3 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-3 border-b border-slate-700/50 pb-2">Detailed Transaction Log</h3>
-                                <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2">
-                                    {team.transactions.map((tx, i) => (
-                                        <div key={i} className="flex gap-4">
-                                            {tx.type === 'trade' ? (
-                                                <div className="flex w-full items-stretch justify-between text-xs bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
-                                                    <div className="flex items-center justify-center w-[60px] shrink-0 border-r border-slate-800/50 pr-2">
-                                                        <img src={`https://www.mlbstatic.com/team-logos/${tx.teamA?.id}.svg`} className="w-12 h-12 drop-shadow-md" crossOrigin="anonymous" />
-                                                    </div>
-                                                    <div className="flex flex-col justify-center flex-1 px-4 min-w-0 gap-1.5 py-1 items-start text-left">
-                                                        {tx.receivedByA?.map(p => (
-                                                            <div key={`A-${p.id}`} className="text-slate-200 text-[11px] font-bold whitespace-nowrap">
-                                                                <span className="text-sky-400 mr-1">►</span>{p.name} <span className="text-slate-500 font-medium ml-1">({p.position})</span>
-                                                            </div>
-                                                        ))}
-                                                        {tx.receivedByA?.length === 0 && <span className="text-slate-500 italic text-[10px]">Salary Relief</span>}
-                                                    </div>
-                                                    <div className="flex items-center justify-center shrink-0 px-2 text-slate-500 font-bold">↔</div>
-                                                    <div className="flex flex-col justify-center flex-1 px-4 min-w-0 gap-1.5 py-1 items-end text-right">
-                                                        {tx.receivedByB?.map(p => (
-                                                            <div key={`B-${p.id}`} className="text-slate-200 text-[11px] font-bold whitespace-nowrap">
-                                                                <span className="text-slate-500 font-medium mr-1">({p.position})</span> {p.name} <span className="text-amber-400 ml-1">◄</span>
-                                                            </div>
-                                                        ))}
-                                                        {tx.receivedByB?.length === 0 && <span className="text-slate-500 italic text-[10px]">Salary Relief</span>}
-                                                    </div>
-                                                    <div className="flex items-center justify-center w-[60px] shrink-0 border-l border-slate-800/50 pl-2">
-                                                        <img src={`https://www.mlbstatic.com/team-logos/${tx.teamB?.id}.svg`} className="w-12 h-12 drop-shadow-md" crossOrigin="anonymous" />
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="flex flex-1 items-center gap-3 text-xs bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
-                                                    <img src={tx.logo} className="w-6 h-6 object-contain" crossOrigin="anonymous"/>
-                                                    <span className="text-emerald-400 font-semibold">{tx.msg}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
+                            <div className="glass-panel p-4 rounded-2xl mb-6 flex flex-col">
+                                <div className="flex justify-between items-center mb-3 border-b border-slate-700/50 pb-2">
+                                    <h3 className="text-xs font-bold text-sky-400 uppercase tracking-widest">Detailed Transaction Log</h3>
+                                    <button onClick={() => setShowTxLog(!showTxLog)} className="text-[10px] font-bold text-slate-400 bg-slate-800 hover:text-white px-2 py-1 rounded transition-colors">
+                                        {showTxLog ? 'Collapse Log' : 'Expand Log'}
+                                    </button>
                                 </div>
+                                {showTxLog && (
+                                    <div className="flex flex-col gap-2">
+                                        {team.transactions.map((tx, i) => (
+                                            <div key={i} className="flex gap-4">
+                                                {tx.type === 'trade' ? (
+                                                    <div className="flex w-full items-stretch justify-between text-xs bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
+                                                        <div className="flex items-center justify-center w-[60px] shrink-0 border-r border-slate-800/50 pr-2">
+                                                            <img src={`https://www.mlbstatic.com/team-logos/${tx.teamA?.id}.svg`} className="w-12 h-12 drop-shadow-md" crossOrigin="anonymous" />
+                                                        </div>
+                                                        <div className="flex flex-col justify-center flex-1 px-4 min-w-0 gap-1.5 py-1 items-start text-left">
+                                                            {tx.receivedByA?.map(p => (
+                                                                <div key={`A-${p.id}`} className="text-slate-200 text-[11px] font-bold whitespace-nowrap">
+                                                                    <span className="text-sky-400 mr-1">►</span>{p.name} <span className="text-slate-500 font-medium ml-1">({['SP', 'RP'].includes(p.position) ? 'P' : p.position})</span>
+                                                                </div>
+                                                            ))}
+                                                            {tx.receivedByA?.length === 0 && <span className="text-slate-500 italic text-[10px]">Salary Relief</span>}
+                                                        </div>
+                                                        <div className="flex items-center justify-center shrink-0 px-2 text-slate-500 font-bold">↔</div>
+                                                        <div className="flex flex-col justify-center flex-1 px-4 min-w-0 gap-1.5 py-1 items-end text-right">
+                                                            {tx.receivedByB?.map(p => (
+                                                                <div key={`B-${p.id}`} className="text-slate-200 text-[11px] font-bold whitespace-nowrap">
+                                                                    <span className="text-slate-500 font-medium mr-1">({['SP', 'RP'].includes(p.position) ? 'P' : p.position})</span> {p.name} <span className="text-amber-400 ml-1">◄</span>
+                                                                </div>
+                                                            ))}
+                                                            {tx.receivedByB?.length === 0 && <span className="text-slate-500 italic text-[10px]">Salary Relief</span>}
+                                                        </div>
+                                                        <div className="flex items-center justify-center w-[60px] shrink-0 border-l border-slate-800/50 pl-2">
+                                                            <img src={`https://www.mlbstatic.com/team-logos/${tx.teamB?.id}.svg`} className="w-12 h-12 drop-shadow-md" crossOrigin="anonymous" />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-1 items-center gap-3 text-xs bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
+                                                        <img src={tx.logo} className="w-6 h-6 object-contain" crossOrigin="anonymous"/>
+                                                        <span className="text-emerald-400 font-semibold">{tx.msg}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                         
@@ -864,17 +874,32 @@
             );
         };
 
-        const FieldView = ({ team, setMyTeam }) => {
-            const handleFieldDrop = (playerId, targetZone) => {
+        const FieldView = ({ team, setMyTeam, showTxLog, setShowTxLog }) => {
+            const handleFieldDrop = (playerId, targetZone, targetPlayerId = null) => {
                 setMyTeam(prev => {
                     const roster = [...prev.roster];
-                    const player = roster.find(p => p.id.toString() === playerId.toString());
-                    if (!player) return prev;
+                    const pIdx = roster.findIndex(p => p.id.toString() === playerId.toString());
+                    if (pIdx === -1) return prev;
+                    const player = roster[pIdx];
 
                     const tIdStr = String(targetZone);
 
                     if (tIdStr.startsWith('Pos-')) {
                         const newPos = tIdStr.split('-')[1];
+
+                        roster.splice(pIdx, 1);
+
+                        if (targetPlayerId) {
+                            const newTargetIdx = roster.findIndex(p => p.id.toString() === targetPlayerId.toString() && (p.position === newPos || (newPos === 'SP' && p.fieldSpot === 'Rotation')));
+                            if (newTargetIdx !== -1) {
+                                roster.splice(newTargetIdx, 0, player);
+                            } else {
+                                roster.push(player);
+                            }
+                        } else {
+                            roster.push(player);
+                        }
+
                         player.position = newPos;
                         if (newPos === 'SP' && player.fieldSpot !== 'Rotation') {
                             const used = roster.filter(x => x.fieldSpot === 'Rotation').map(x => x.pitchingOrder).filter(Boolean);
@@ -887,7 +912,11 @@
                     } else if (tIdStr.startsWith('Bat-')) {
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = roster.find(p => p.fieldSpot === 'Lineup' && p.battingOrder === newOrder);
-                        if (occupant) occupant.battingOrder = player.battingOrder || null;
+                        if (occupant && occupant.id !== player.id) {
+                            occupant.battingOrder = player.fieldSpot === 'Lineup' ? player.battingOrder : null;
+                            occupant.fieldSpot = player.fieldSpot === 'Lineup' ? 'Lineup' : 'Bench';
+                            if (occupant.fieldSpot === 'Bench' && ['P', 'SP', 'RP'].includes(occupant.position)) occupant.position = 'DH';
+                        }
                         player.pitchingOrder = null;
                         player.fieldSpot = 'Lineup';
                         player.battingOrder = newOrder;
@@ -895,7 +924,11 @@
                     } else if (tIdStr.startsWith('Pen-')) {
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = roster.find(p => p.fieldSpot === 'Bullpen' && p.pitchingOrder === newOrder);
-                        if (occupant) occupant.pitchingOrder = player.pitchingOrder || null;
+                        if (occupant && occupant.id !== player.id) {
+                            occupant.pitchingOrder = player.fieldSpot === 'Bullpen' ? player.pitchingOrder : null;
+                            occupant.fieldSpot = player.fieldSpot === 'Bullpen' ? 'Bullpen' : 'Bench';
+                            if (occupant.fieldSpot === 'Bench' && ['P', 'SP', 'RP'].includes(occupant.position)) occupant.position = 'DH';
+                        }
                         player.battingOrder = null;
                         player.fieldSpot = 'Bullpen';
                         player.pitchingOrder = newOrder;
@@ -904,7 +937,11 @@
                     } else if (tIdStr.startsWith('Rot-')) {
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = roster.find(p => p.fieldSpot === 'Rotation' && p.pitchingOrder === newOrder);
-                        if (occupant) occupant.pitchingOrder = player.pitchingOrder || null;
+                        if (occupant && occupant.id !== player.id) {
+                            occupant.pitchingOrder = player.fieldSpot === 'Rotation' ? player.pitchingOrder : null;
+                            occupant.fieldSpot = player.fieldSpot === 'Rotation' ? 'Rotation' : 'Bench';
+                            if (occupant.fieldSpot === 'Bench' && ['P', 'SP', 'RP'].includes(occupant.position)) occupant.position = 'DH';
+                        }
                         player.battingOrder = null;
                         player.fieldSpot = 'Rotation';
                         player.pitchingOrder = newOrder;
@@ -931,6 +968,7 @@
                         player.battingOrder = null;
                         player.pitchingOrder = null;
                         player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
+                        if (['P', 'SP', 'RP'].includes(player.position)) player.position = 'DH';
                     }
                     return { ...prev, roster };
                 });
@@ -966,24 +1004,43 @@
                 const posPlayers = activeRoster.filter(p => p.position === id || (id === 'SP' && p.fieldSpot === 'Rotation'));
                 const isSP = id === 'SP';
                 const transform = isSP ? 'translate(-50%, -100%)' : 'translate(-50%, -50%)';
+
+                // Dynamic multiplier: Automatically shrinks the content to fit 10+ players seamlessly
+                const count = posPlayers.length;
+                const shrink = count > 8 ? 0.6 : count > 5 ? 0.75 : 1;
+
                 return (
-                    <div className="absolute border border-theme bg-slate-900 shadow-2xl flex flex-col rounded-md"
-                         style={{ left, top, transform, width: '8.5cqw', maxHeight: isSP ? 'none' : '10cqw', overflow: isSP ? 'visible' : 'hidden', zIndex: isSP ? 20 : 10 }}
-                         onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Pos-${id}`); }}
+                    <div className="absolute border border-theme bg-slate-900 shadow-2xl flex flex-col rounded-md overflow-hidden"
+                         style={{ left, top, transform, width: '8.5cqw', zIndex: isSP ? 20 : 10 }}
+                         onDrop={(e) => { 
+                             e.preventDefault(); 
+                             e.stopPropagation();
+                             handleFieldDrop(e.dataTransfer.getData('playerId'), `Pos-${id}`); 
+                         }}
                          onDragOver={(e) => e.preventDefault()}
                     >
-                        <div className="bg-theme text-white font-black uppercase text-center border-b border-theme shrink-0" style={{ fontSize: '0.8cqw', padding: '0.2cqw' }}>{label}</div>
-                        <div className={`flex-1 p-0.5 bg-slate-900 flex flex-col gap-0.5 ${!isSP ? 'overflow-y-auto custom-scrollbar' : ''}`}>
+                        <div className="bg-theme text-white font-black uppercase text-center border-b border-theme shrink-0" style={{ fontSize: `${0.8 * shrink}cqw`, padding: `${0.2 * shrink}cqw` }}>{label}</div>
+                        <div className="flex-1 p-0.5 bg-slate-900 flex flex-col overflow-hidden" style={{ gap: `${0.2 * shrink}cqw` }}>
+                            {posPlayers.length === 0 && (
+                                <div className="text-slate-500 italic text-center py-1 font-bold" style={{ fontSize: `${0.6 * shrink}cqw` }}>Empty</div>
+                            )}
                             {posPlayers.map(p => {
                                 const nameLen = p.name.length;
-                                const fontSize = isSP 
-                                    ? (nameLen > 15 ? '0.45cqw' : '0.55cqw') 
-                                    : (nameLen > 15 ? '0.55cqw' : nameLen > 12 ? '0.6cqw' : '0.65cqw');
-                                const imgSize = isSP ? '1.2cqw' : '1.8cqw';
+                                const fontSize = nameLen > 15 ? `${0.5 * shrink}cqw` : nameLen > 12 ? `${0.55 * shrink}cqw` : `${0.6 * shrink}cqw`;
                                 return (
-                                    <div key={p.id} draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))}
-                                         className="flex items-center cursor-pointer hover:bg-slate-800 text-slate-200 rounded px-0.5" style={{ padding: '0.2cqw', gap: '0.4cqw' }}>
-                                        <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-950" style={{ width: imgSize, height: imgSize }} />
+                                    <div key={p.id} draggable="true" 
+                                         onDragStart={(e) => {
+                                             e.dataTransfer.setData('playerId', String(p.id));
+                                             e.stopPropagation();
+                                         }}
+                                         onDrop={(e) => {
+                                             e.preventDefault();
+                                             e.stopPropagation();
+                                             handleFieldDrop(e.dataTransfer.getData('playerId'), `Pos-${id}`, p.id);
+                                         }}
+                                         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                         className="flex items-center cursor-pointer hover:bg-slate-800 text-slate-200 rounded px-0.5 shrink-0" style={{ padding: `${0.2 * shrink}cqw`, gap: `${0.4 * shrink}cqw` }}>
+                                        <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-950" style={{ width: `${1.6 * shrink}cqw`, height: `${1.6 * shrink}cqw` }} />
                                         <span className="truncate font-semibold text-slate-200" style={{ fontSize }}>{p.name}</span>
                                     </div>
                                 )
@@ -995,28 +1052,35 @@
 
             return (
                 <div className="w-full h-full bg-[#020617] flex flex-col items-center justify-center p-2 overflow-hidden relative">
-                    <div className="w-full bg-slate-900/80 border border-slate-800 rounded-lg mb-1 flex flex-col shrink-0 shadow-md max-h-[15vh] overflow-hidden" style={{ maxWidth: 'calc(100vh * 16 / 9)' }}>
-                        <div className="text-[10px] font-black text-theme uppercase tracking-widest border-b border-slate-800 py-1 px-3 bg-slate-900/90 z-10 shrink-0">Recent Activity</div>
-                        <div className="flex flex-col gap-1 text-xs text-slate-300 overflow-y-auto custom-scrollbar p-2 items-start">
-                            {displayTxs && displayTxs.length > 0 ? displayTxs.map((tx, i) => (
-                                <div key={i} className="flex items-center gap-1.5 shrink-0">
-                                    {tx.type === 'trade' ? (
-                                        <div className="flex items-center bg-slate-950/50 px-2 py-1 rounded border border-slate-800 text-[0.85cqw] w-max">
-                                            <img src={`https://www.mlbstatic.com/team-logos/${tx.teamA?.id}.svg`} className="w-[1.4cqw] h-[1.4cqw] mr-2 drop-shadow-md" crossOrigin="anonymous" />
-                                            <span className="text-slate-200 font-bold">{tx.receivedByA?.length > 0 ? tx.receivedByA.map(p=>p.name).join(', ') : 'Cash'}</span>
-                                            <span className="text-slate-500 font-bold mx-2">↔</span>
-                                            <span className="text-slate-200 font-bold">{tx.receivedByB?.length > 0 ? tx.receivedByB.map(p=>p.name).join(', ') : 'Cash'}</span>
-                                            <img src={`https://www.mlbstatic.com/team-logos/${tx.teamB?.id}.svg`} className="w-[1.4cqw] h-[1.4cqw] ml-2 drop-shadow-md" crossOrigin="anonymous" />
-                                        </div>
-                                    ) : (
-                                        <div className="text-emerald-400 font-medium bg-slate-950/50 px-2 py-1 rounded border border-slate-800 text-[0.85cqw] flex items-center gap-2 w-max">
-                                            <img src={tx.logo} className="w-[1.4cqw] h-[1.4cqw] drop-shadow-md object-contain" crossOrigin="anonymous"/>
-                                            {tx.msg}
-                                        </div>
-                                    )}
-                                </div>
-                            )) : <span className="text-slate-500 italic text-[0.85cqw]">No recent transactions</span>}
+                    <div className="w-full bg-slate-900/80 border border-slate-800 rounded-lg mb-1 flex flex-col shrink-0 shadow-md">
+                        <div className="flex justify-between items-center border-b border-slate-800 py-1 px-3 bg-slate-900/90 z-10 shrink-0">
+                            <span className="text-[10px] font-black text-theme uppercase tracking-widest">Recent Activity</span>
+                            <button onClick={() => setShowTxLog(!showTxLog)} className="text-[9px] font-bold text-slate-400 bg-slate-800 hover:text-white px-2 rounded transition-colors">
+                                {showTxLog ? 'Collapse' : 'Expand'}
+                            </button>
                         </div>
+                        {showTxLog && (
+                            <div className="flex flex-col gap-1 text-xs text-slate-300 p-2 items-start">
+                                {displayTxs && displayTxs.length > 0 ? displayTxs.map((tx, i) => (
+                                    <div key={i} className="flex items-center gap-1.5 shrink-0">
+                                        {tx.type === 'trade' ? (
+                                            <div className="flex items-center bg-slate-950/50 px-2 py-1 rounded border border-slate-800 text-[0.85cqw] w-max">
+                                                <img src={`https://www.mlbstatic.com/team-logos/${tx.teamA?.id}.svg`} className="w-[1.4cqw] h-[1.4cqw] mr-2 drop-shadow-md" crossOrigin="anonymous" />
+                                                <span className="text-slate-200 font-bold">{tx.receivedByA?.length > 0 ? tx.receivedByA.map(p=>p.name).join(', ') : 'Cash'}</span>
+                                                <span className="text-slate-500 font-bold mx-2">↔</span>
+                                                <span className="text-slate-200 font-bold">{tx.receivedByB?.length > 0 ? tx.receivedByB.map(p=>p.name).join(', ') : 'Cash'}</span>
+                                                <img src={`https://www.mlbstatic.com/team-logos/${tx.teamB?.id}.svg`} className="w-[1.4cqw] h-[1.4cqw] ml-2 drop-shadow-md" crossOrigin="anonymous" />
+                                            </div>
+                                        ) : (
+                                            <div className="text-emerald-400 font-medium bg-slate-950/50 px-2 py-1 rounded border border-slate-800 text-[0.85cqw] flex items-center gap-2 w-max">
+                                                <img src={tx.logo} className="w-[1.4cqw] h-[1.4cqw] drop-shadow-md object-contain" crossOrigin="anonymous"/>
+                                                {tx.msg}
+                                            </div>
+                                        )}
+                                    </div>
+                                )) : <span className="text-slate-500 italic text-[0.85cqw]">No recent transactions</span>}
+                            </div>
+                        )}
                     </div>
 
                     <div className="relative border border-slate-800 flex overflow-hidden shadow-2xl bg-zinc-950 rounded-xl"
@@ -1058,73 +1122,72 @@
                             </div>
                         </div>
 
-                        <div className="h-full flex bg-slate-900" style={{ width: '43.75cqw' }}>
-                            <div className="w-1/2 h-full flex flex-col border-r border-slate-800">
-                                <div className="bg-sky-950 text-sky-300 font-bold uppercase text-center border-b border-slate-800 shrink-0" style={{ fontSize: '1cqw', padding: '0.4cqw' }}>Lineup</div>
-                                <div className="flex flex-col shrink-0 overflow-y-auto custom-scrollbar flex-1" style={{ padding: '0.4cqw', gap: '0.3cqw' }}>
-                                    {[1,2,3,4,5,6,7,8,9].map(num => {
-                                        const p = activeRoster.find(x => x.fieldSpot === 'Lineup' && x.battingOrder === num);
-                                        return (
-                                            <div key={num} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden shrink-0"
-                                                 style={{ height: '3.1cqw' }}
-                                                 onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Bat-${num}`); }}
-                                                 onDragOver={(e) => e.preventDefault()}
-                                            >
-                                                <div className="bg-slate-900 text-slate-400 font-black flex justify-center items-center shrink-0 border-r border-slate-800" style={{ width: '2cqw', height: '100%', fontSize: '0.8cqw' }}>#{num}</div>
-                                                <div className="flex-1 flex items-center bg-slate-950 h-full">
-                                                    {p ? (
-                                                        <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
-                                                            <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.8cqw', height: '1.8cqw' }} />
-                                                            <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.6cqw' : '0.75cqw' }}>{p.name}</span>
-                                                        </div>
-                                                    ) : <span className="text-slate-600 italic" style={{ fontSize: '0.7cqw', padding: '0 0.4cqw' }}>Empty</span>}
+                        <div className="h-full flex flex-col bg-slate-900 overflow-hidden" style={{ width: '43.75cqw' }}>
+                            <div className="flex flex-1 min-h-0">
+                                <div className="w-1/2 h-full flex flex-col border-r border-slate-800">
+                                    <div className="bg-sky-950 text-sky-300 font-bold uppercase text-center border-b border-slate-800 shrink-0" style={{ fontSize: '1cqw', padding: '0.4cqw' }}>Lineup</div>
+                                    <div className="flex flex-col shrink-0 flex-1 justify-between p-0.5" style={{ gap: '1px' }}>
+                                        {[1,2,3,4,5,6,7,8,9].map(num => {
+                                            const p = activeRoster.find(x => x.fieldSpot === 'Lineup' && x.battingOrder === num);
+                                            return (
+                                                <div key={num} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden shrink-0 flex-1 min-h-0"
+                                                     onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Bat-${num}`); }}
+                                                     onDragOver={(e) => e.preventDefault()}
+                                                >
+                                                    <div className="bg-slate-900 text-slate-400 font-black flex justify-center items-center shrink-0 border-r border-slate-800" style={{ width: '2cqw', height: '100%', fontSize: '0.8cqw' }}>#{num}</div>
+                                                    <div className="flex-1 flex items-center bg-slate-950 h-full">
+                                                        {p ? (
+                                                            <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
+                                                                <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.8cqw', height: '1.8cqw' }} />
+                                                                <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.5cqw' : '0.6cqw' }}>{p.name}</span>
+                                                            </div>
+                                                        ) : <span className="text-slate-600 italic" style={{ fontSize: '0.6cqw', padding: '0 0.4cqw' }}>Empty</span>}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )
-                                    })}
+                                            )
+                                        })}
+                                    </div>
                                 </div>
-                                <div className="bg-slate-800 text-slate-300 font-bold uppercase text-center border-y border-slate-700 shrink-0" style={{ fontSize: '0.85cqw', padding: '0.2cqw' }}>Bench</div>
-                                <div className="h-[22%] overflow-y-auto custom-scrollbar flex flex-col bg-slate-900" style={{ padding: '0.4cqw', gap: '0.3cqw' }}
-                                     onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), 'Bench'); }}
-                                     onDragOver={(e) => e.preventDefault()}>
-                                     {activeRoster.filter(p => p.fieldSpot === 'Bench').map(p => (
-                                         <div key={p.id} draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden cursor-pointer hover:bg-slate-900 text-slate-200 shrink-0" style={{ height: '2.8cqw', padding: '0 0.4cqw', gap: '0.4cqw' }}>
-                                             <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.8cqw', height: '1.8cqw' }} />
-                                             <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.6cqw' : '0.75cqw' }}>{p.name}</span>
-                                         </div>
-                                     ))}
-                                </div>
-                            </div>
-                            
-                            <div className="w-1/2 h-full flex flex-col border-l border-slate-800">
-                                <div className="bg-amber-950 text-amber-400 font-bold uppercase text-center border-b border-slate-800 shrink-0" style={{ fontSize: '1cqw', padding: '0.4cqw' }}>Bullpen</div>
-                                <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-slate-900 drop-zone transition-colors" style={{ padding: '0.4cqw', gap: '0.3cqw' }}
-                                     onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('active'); const tgt = e.dataTransfer.getData('playerId'); if(tgt) handleFieldDrop(tgt, 'Bullpen'); }}
-                                     onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                                     onDragEnter={(e) => { e.preventDefault(); e.currentTarget.classList.add('active'); }}
-                                     onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('active'); }}>
-                                    {penSlots.map(num => {
-                                        const p = bullpen.find(x => x.pitchingOrder === num);
-                                        const label = num === 1 ? 'CL' : num <= 3 ? 'SU' : 'RP';
-                                        return (
-                                            <div key={num} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden shrink-0 relative z-10"
-                                                 style={{ height: '3.1cqw' }}
-                                                 onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Pen-${num}`); }}
-                                                 onDragOver={(e) => e.preventDefault()}
-                                            >
-                                                <div className="bg-slate-900 text-amber-500 font-black flex justify-center items-center shrink-0 border-r border-slate-800 pointer-events-none" style={{ width: '2cqw', height: '100%', fontSize: '0.75cqw' }}>{label}</div>
-                                                <div className="flex-1 flex items-center bg-slate-950 h-full pointer-events-none">
-                                                    {p ? (
+                                
+                                <div className="w-1/2 h-full flex flex-col border-l border-slate-800">
+                                    <div className="bg-amber-950 text-amber-400 font-bold uppercase text-center border-b border-slate-800 shrink-0" style={{ fontSize: '1cqw', padding: '0.4cqw' }}>Bullpen</div>
+                                    <div className="flex-1 flex flex-col drop-zone transition-colors p-0.5 justify-start" style={{ gap: '1px' }}
+                                         onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('active'); const tgt = e.dataTransfer.getData('playerId'); if(tgt) handleFieldDrop(tgt, 'Bullpen'); }}
+                                         onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                                         onDragEnter={(e) => { e.preventDefault(); e.currentTarget.classList.add('active'); }}
+                                         onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('active'); }}>
+                                        {bullpen.sort((a,b)=>a.pitchingOrder-b.pitchingOrder).map((p, idx) => {
+                                            const label = idx === 0 ? 'CL' : idx <= 2 ? 'SU' : 'RP';
+                                            return (
+                                                <div key={p.id} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden shrink-0 flex-1 min-h-0 relative z-10"
+                                                     style={{ maxHeight: '12%' }}
+                                                     onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Pen-${p.pitchingOrder}`); }}
+                                                     onDragOver={(e) => e.preventDefault()}
+                                                >
+                                                    <div className="bg-slate-900 text-amber-500 font-black flex justify-center items-center shrink-0 border-r border-slate-800 pointer-events-none" style={{ width: '2cqw', height: '100%', fontSize: '0.75cqw' }}>{label}</div>
+                                                    <div className="flex-1 flex items-center bg-slate-950 h-full pointer-events-none">
                                                         <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200 pointer-events-auto" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
                                                             <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.8cqw', height: '1.8cqw' }} />
-                                                            <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.6cqw' : '0.75cqw' }}>{p.name}</span>
+                                                            <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.5cqw' : '0.6cqw' }}>{p.name}</span>
                                                         </div>
-                                                    ) : <span className="text-slate-600 italic" style={{ fontSize: '0.7cqw', padding: '0 0.4cqw' }}>Empty</span>}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )
-                                    })}
+                                            )
+                                        })}
+                                    </div>
                                 </div>
+                            </div>
+
+                            <div className="bg-slate-800 text-slate-300 font-bold uppercase text-center border-y border-slate-700 shrink-0" style={{ fontSize: '0.85cqw', padding: '0.2cqw' }}>Bench</div>
+                            <div className="h-[28%] flex flex-wrap content-start bg-slate-900 overflow-hidden p-0.5" style={{ gap: '1px' }}
+                                 onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), 'Bench'); }}
+                                 onDragOver={(e) => e.preventDefault()}>
+                                 {activeRoster.filter(p => p.fieldSpot === 'Bench').map(p => (
+                                     <div key={p.id} draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden cursor-pointer hover:bg-slate-900 text-slate-200 shrink-0" style={{ width: 'calc(33.3% - 1px)', height: 'calc(33.3% - 1px)', padding: '0 0.5cqw', gap: '0.6cqw' }}>
+                                         <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '2.4cqw', height: '2.4cqw' }} />
+                                         <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.7cqw' : '0.85cqw' }}>{p.name}</span>
+                                     </div>
+                                 ))}
                             </div>
                         </div>
                     </div>
@@ -1354,10 +1417,26 @@
                     if (sortConfig.key === 'aav') { aVal = a.cbtValue || a.aav || 0; bVal = b.cbtValue || b.aav || 0; }
                     else if (['name', 'age', 'position'].includes(sortConfig.key)) { aVal = a[sortConfig.key]; bVal = b[sortConfig.key]; }
                     else if (sortConfig.key === 'team') { aVal = a.teamInfo?.abbr || ""; bVal = b.teamInfo?.abbr || ""; }
-                    else {
-                        aVal = parseFloat(a.stats?.[sortConfig.key]) || -9999;
-                        bVal = parseFloat(b.stats?.[sortConfig.key]) || -9999;
+                    else if (sortConfig.key === 'OPS') {
+                        const aOBP = parseFloat(a.stats?.OBP || 0); const aSLG = parseFloat(a.stats?.SLG || 0);
+                        const bOBP = parseFloat(b.stats?.OBP || 0); const bSLG = parseFloat(b.stats?.SLG || 0);
+                        aVal = aOBP + aSLG > 0 ? (aOBP + aSLG) : null;
+                        bVal = bOBP + bSLG > 0 ? (bOBP + bSLG) : null;
                     }
+                    else {
+                        aVal = parseFloat(a.stats?.[sortConfig.key]);
+                        bVal = parseFloat(b.stats?.[sortConfig.key]);
+                        if (isNaN(aVal)) aVal = null;
+                        if (isNaN(bVal)) bVal = null;
+                    }
+
+                    const isAEmpty = aVal === "" || aVal == null || aVal === "-";
+                    const isBEmpty = bVal === "" || bVal == null || bVal === "-";
+                    
+                    if (isAEmpty && !isBEmpty) return 1;
+                    if (!isAEmpty && isBEmpty) return -1;
+                    if (isAEmpty && isBEmpty) return 0;
+
                     if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
                     if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
                     return 0;
@@ -1465,31 +1544,38 @@
                             <table className="w-full text-left text-sm whitespace-nowrap">
                                 <thead className="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-widest border-b border-slate-700/50 cursor-pointer select-none">
                                     <tr>
-                                        <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('name')}>Player</th>
-                                        <th className="px-6 py-4 font-bold text-center">Action</th>
-                                        <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('team')}>Team</th>
-                                        <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('position')}>Pos</th>
-                                        <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('age')}>Age</th>
-                                        <th className="px-6 py-4 font-bold text-theme hover:brightness-125" onClick={()=>handleSort('fWAR')}>fWAR</th>
-                                        <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('G')}>G</th>
-                                        <th className="px-6 py-4 font-bold hover-text-theme" title="Plate Appearances / Innings Pitched">PA/IP</th>
-                                        <th className="px-6 py-4 font-bold hover-text-theme" title="Batting Average / ERA">AVG/ERA</th>
-                                        <th className="px-6 py-4 font-bold hover-text-theme" title="On-Base Percentage / WHIP">OBP/WHIP</th>
-                                        <th className="px-6 py-4 font-bold hover-text-theme" title="Slugging / Strikeouts">SLG/K</th>
-                                        <th className="px-6 py-4 font-bold text-right hover:text-emerald-400" onClick={()=>handleSort('aav')}>Prev AAV</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('name')}>Player</th>
+                                        <th className="px-5 py-4 font-bold text-center">Action</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('team')}>Team</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('position')}>Pos</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('age')}>Age</th>
+                                        <th className="px-5 py-4 font-bold text-theme hover:brightness-125" onClick={()=>handleSort('fWAR')}>fWAR</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('G')}>G</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('PA')}>PA</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('IP')}>IP</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('AVG')}>AVG</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('OBP')}>OBP</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('SLG')}>SLG</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('OPS')}>OPS</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('ERA')}>ERA</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('WHIP')}>WHIP</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('K')}>K</th>
+                                        <th className="px-5 py-4 font-bold hover-text-theme" onClick={()=>handleSort('BB')}>BB</th>
+                                        <th className="px-5 py-4 font-bold text-right hover:text-emerald-400" onClick={()=>handleSort('aav')}>Prev AAV</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/50">
                                     {sortedList.map(p => {
                                         const pTeam = p.teamInfo || team;
                                         const isP = ['P','SP','RP'].includes(p.position);
+                                        const ops = (!isP && p.stats?.OBP && p.stats?.SLG) ? (parseFloat(p.stats.OBP) + parseFloat(p.stats.SLG)).toFixed(3).replace(/^0+/, '') : "-";
                                         return (
                                             <tr key={`${pTeam.id}-${p.id}`} className="hover:bg-slate-800/50 transition-colors">
-                                                <td className="px-6 py-3 font-bold text-white flex items-center gap-3">
+                                                <td className="px-5 py-3 font-bold text-white flex items-center gap-3">
                                                     <PlayerImage player={p} teamInfo={pTeam} className="w-8 h-8 rounded-full bg-slate-900 object-cover border border-slate-700" />
                                                     {p.name}
                                                 </td>
-                                                <td className="px-6 py-3">
+                                                <td className="px-5 py-3">
                                                     {activeSubTab === 'Options' ? (
                                                         <div className="flex gap-2 justify-center">
                                                             <button onClick={() => handleSignPlayer(p)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-[10px] font-bold transition-colors shadow shadow-emerald-900/50 flex-1">Exercise</button>
@@ -1504,16 +1590,22 @@
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-3 font-semibold text-slate-400">{pTeam.abbr}</td>
-                                                <td className="px-6 py-3 font-semibold text-slate-300">{p.position}</td>
-                                                <td className="px-6 py-3 font-semibold text-slate-400">{p.age}</td>
-                                                <td className="px-6 py-3 font-black text-theme">{p.stats?.fWAR || "-"}</td>
-                                                <td className="px-6 py-3 font-semibold text-slate-400">{p.stats?.G || "-"}</td>
-                                                <td className="px-6 py-3 font-semibold text-slate-300">{isP ? p.stats?.IP : p.stats?.PA || "-"}</td>
-                                                <td className="px-6 py-3 font-semibold text-slate-300">{isP ? p.stats?.ERA : p.stats?.AVG || "-"}</td>
-                                                <td className="px-6 py-3 font-semibold text-slate-300">{isP ? p.stats?.WHIP : p.stats?.OBP || "-"}</td>
-                                                <td className="px-6 py-3 font-semibold text-slate-300">{isP ? p.stats?.K : p.stats?.SLG || "-"}</td>
-                                                <td className="px-6 py-3 font-black text-emerald-400 text-right">{formatMoney(p.cbtValue || p.aav)}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-400">{pTeam.abbr}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{['SP', 'RP'].includes(p.position) ? 'P' : p.position}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-400">{p.age}</td>
+                                                <td className="px-5 py-3 font-black text-theme">{p.stats?.fWAR || "-"}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{p.stats?.G || "-"}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{isP ? "-" : p.stats?.PA || "-"}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{isP ? p.stats?.IP || "-" : "-"}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{isP ? "-" : p.stats?.AVG || "-"}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{isP ? "-" : p.stats?.OBP || "-"}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{isP ? "-" : p.stats?.SLG || "-"}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{ops}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{isP ? p.stats?.ERA || "-" : "-"}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{isP ? p.stats?.WHIP || "-" : "-"}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{p.stats?.K || "-"}</td>
+                                                <td className="px-5 py-3 font-semibold text-slate-300">{p.stats?.BB || "-"}</td>
+                                                <td className="px-5 py-3 font-black text-emerald-400 text-right">{formatMoney(p.cbtValue || p.aav)}</td>
                                             </tr>
                                         );
                                     })}
@@ -1669,6 +1761,7 @@
             const [myTeam, setMyTeam] = useState(null);
             const [activeTab, setActiveTab] = useState('roster');
             const [notification, setNotification] = useState(null);
+            const [showTxLog, setShowTxLog] = useState(true);
 
             const showNotification = (msg, type='info') => { setNotification({msg, type}); setTimeout(() => setNotification(null), 3000); };
             const handleTeamSelect = (teamData, mode, year) => { setMyTeam(teamData); setSetupData({ mode, year }); setActiveTab('roster'); };
@@ -1739,8 +1832,8 @@
                     <Toast notification={notification} />
                     <TopNavbar team={myTeam} activeTab={activeTab} setActiveTab={setActiveTab} exportSave={exportSave} clearSession={clearSession} handleLoadGame={handleLoadGame} />
                     <main className="flex-1 overflow-hidden relative">
-                        {activeTab === 'roster' && <RosterDashboard team={myTeam} setTeam={setMyTeam} setupData={setupData} showNotification={showNotification} />}
-                        {activeTab === 'field' && <FieldView team={myTeam} setMyTeam={setMyTeam} showNotification={showNotification} />}
+                        {activeTab === 'roster' && <RosterDashboard team={myTeam} setTeam={setMyTeam} setupData={setupData} showNotification={showNotification} showTxLog={showTxLog} setShowTxLog={setShowTxLog} />}
+                        {activeTab === 'field' && <FieldView team={myTeam} setMyTeam={setMyTeam} showTxLog={showTxLog} setShowTxLog={setShowTxLog} />}
                         {activeTab === 'trades' && <TradeSimulator myTeam={myTeam} setMyTeam={setMyTeam} setupData={setupData} showNotification={showNotification} />}
                         {activeTab === 'fa' && setupData.mode === 'offseason' && <FreeAgencyHub team={myTeam} setMyTeam={setMyTeam} setupData={setupData} showNotification={showNotification} />}
                         {activeTab === 'stats' && <StatsViewer team={myTeam} />}
