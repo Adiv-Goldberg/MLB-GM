@@ -860,12 +860,12 @@
                 const posPlayers = activeRoster.filter(p => p.position === id || (id === 'SP' && p.fieldSpot === 'Rotation'));
                 const isSP = id === 'SP';
                 return (
-                    <div className="absolute border border-blue-900/50 bg-slate-900 shadow-2xl flex flex-col rounded-md"
+                    <div className="absolute border border-theme bg-slate-900 shadow-2xl flex flex-col rounded-md"
                          style={{ left, top, transform: 'translate(-50%, -50%)', width: '8.5cqw', maxHeight: isSP ? 'none' : '10cqw', overflow: isSP ? 'visible' : 'hidden', zIndex: isSP ? 20 : 10 }}
                          onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Pos-${id}`); }}
                          onDragOver={(e) => e.preventDefault()}
                     >
-                        <div className="bg-blue-800 text-white font-black uppercase text-center border-b border-blue-900 shrink-0" style={{ fontSize: '0.8cqw', padding: '0.2cqw' }}>{label}</div>
+                        <div className="bg-theme text-white font-black uppercase text-center border-b border-theme shrink-0" style={{ fontSize: '0.8cqw', padding: '0.2cqw' }}>{label}</div>
                         <div className={`flex-1 p-0.5 bg-slate-900 flex flex-col gap-0.5 ${!isSP ? 'overflow-y-auto custom-scrollbar' : ''}`}>
                             {posPlayers.map(p => {
                                 const nameLen = p.name.length;
