@@ -114,7 +114,7 @@
             { id: 137, name: "San Francisco Giants", abbr: "SF", color: '#fd5a1e', secondary: '#27251f' }
         ];
 
-        const POS_OPTIONS = ["All", "P", "SP", "RP", "C", "1B", "2B", "3B", "SS", "INF", "LF", "CF", "RF", "OF", "DH"];
+        const POS_OPTIONS = ["All", "P", "C", "1B", "2B", "3B", "SS", "INF", "LF", "CF", "RF", "OF", "DH"];
 
         const formatMoney = (amount) => {
             if (!amount || isNaN(amount)) return "$0";
@@ -260,7 +260,13 @@
                 const level = r[4] || "Minors";
                 let status = r[5] || "Minors";
                 let injury = r[6] || "";
-                const optionsLeft = (r[8] !== undefined && r[8] !== "" && !isNaN(parseInt(r[8]))) ? parseInt(r[8]) : 0;
+                
+                const extractNumber = (str) => {
+                    if (str === undefined || str === null || str === "") return 0;
+                    const cleaned = str.toString().replace(/[^0-9]/g, '');
+                    return parseInt(cleaned, 10) || 0;
+                };
+                const optionsLeft = extractNumber(r[8]);
                 
                 const stats = {
                     fWAR: r[9] || "", G: r[10] || "", PA: r[11] || "", IP: r[12] || "", 
@@ -269,7 +275,7 @@
                 };
 
                 const aav = parseCurrencyString(r[20]);
-                const remaining = parseInt(r[22]) || 1;
+                const remaining = extractNumber(r[22]);
                 const expiryType = r[23] || "UFA";
                 
                 const teamRank = r[24] && !isNaN(parseInt(r[24])) ? parseInt(r[24]) : null;
@@ -282,11 +288,24 @@
                 const isMajors = status === '26-Man Active' || injury.match(/60|15|10|7/) || status === '40-Man';
 
                 let faStatus = 'Under Contract';
-                if (mode === 'offseason' && remaining <= 1 && !expiryType.includes('Pre-Arb') && !expiryType.includes('Minor')) {
-                    if (expiryType.toLowerCase().includes('option')) faStatus = 'Option';
-                    else if (expiryType.toLowerCase().includes('arb')) faStatus = 'Arb';
-                    else faStatus = 'UFA';
+                if (mode === 'offseason') {
+                    const expLow = (expiryType || "").toLowerCase();
+                    // Rule: If Sheet Column W (remaining) is 1 (or 0), they are exclusively in FA Hub until signed.
+                    if (remaining <= 1) {
+                        if (status === 'Minors' || level === 'Minors' || expLow.includes('minor')) {
+                            faStatus = 'Under Contract'; // Auto-tender all MiLB players
+                        } else if (expLow.includes('opt')) {
+                            faStatus = 'Option';
+                        } else if (expLow.includes('arb') || expLow.includes('pre-arb') || expLow.includes('auto')) {
+                            faStatus = 'Arb'; // Forces pre-arb/arb players into the Arb tab for tendering
+                        } else {
+                            faStatus = 'UFA';
+                        }
+                    }
                 }
+
+                // Rule: Display 1 less year remaining since it's jumping to the offseason
+                const displayRemaining = remaining > 0 ? remaining - 1 : 0;
 
                 let fieldSpot = 'Minors';
                 let battingOrder = null;
@@ -319,7 +338,7 @@
 
                 roster.push({
                     id: String(rawId), name: rawName, initials, position: pos, age, level, rosterStatus: status, injury,
-                    optionsLeft, contractStatus: expiryType, aav, remaining, expiryType, cbtValue, cbtList, teamRank, top100Rank, is40Man,
+                    optionsLeft, contractStatus: expiryType, aav, remaining: displayRemaining, expiryType, cbtValue, cbtList, teamRank, top100Rank, is40Man,
                     stats, faStatus, fieldSpot, battingOrder, pitchingOrder, originalTeamId: team.id, acquiredVia: 'Draft'
                 });
             });
@@ -572,7 +591,7 @@
             const rotation = team.roster?.filter(p => p.fieldSpot === 'Rotation') || [];
             const bullpen = team.roster?.filter(p => p.fieldSpot === 'Bullpen') || [];
             
-            let il = team.roster?.filter(p => p.fieldSpot?.startsWith('IL') || p.injury?.toLowerCase().includes('injured') || p.rosterStatus?.startsWith('IL')) || [];
+            let il = team.roster?.filter(p => p.fieldSpot !== 'Pending FA' && (p.fieldSpot?.startsWith('IL') || p.injury?.toLowerCase().includes('injured') || p.rosterStatus?.startsWith('IL'))) || [];
             if (ilFilter !== 'All') il = il.filter(p => p.fieldSpot === ilFilter || p.rosterStatus === ilFilter || p.injury?.includes(ilFilter.replace('IL','')));
             
             let minors = team.roster?.filter(p => ['Minors', '40-Man Minor'].includes(p.fieldSpot)) || [];
@@ -854,7 +873,7 @@
             const activeRoster = team.roster?.filter(p => ['Lineup', 'Bench', 'Rotation', 'Bullpen'].includes(p.fieldSpot)) || [];
             const rotation = team.roster?.filter(p => p.fieldSpot === 'Rotation') || [];
             const bullpen = team.roster?.filter(p => p.fieldSpot === 'Bullpen') || [];
-            const il = team.roster?.filter(p => p.fieldSpot?.includes('IL') || p.injury?.toLowerCase().includes('injured')) || [];
+            const il = team.roster?.filter(p => p.fieldSpot !== 'Pending FA' && (p.fieldSpot?.includes('IL') || p.injury?.toLowerCase().includes('injured'))) || [];
 
             const FieldDepthBox = ({ label, id, left, top }) => {
                 const posPlayers = activeRoster.filter(p => p.position === id || (id === 'SP' && p.fieldSpot === 'Rotation'));
@@ -1160,6 +1179,8 @@
         const FreeAgencyHub = ({ team, setMyTeam, setupData, showNotification }) => {
             const [activeSubTab, setActiveSubTab] = useState('UFA');
             const [leagueFaData, setLeagueFaData] = useState([]);
+            const [declinedIds, setDeclinedIds] = useState(new Set());
+            const [autoDeclineCPU, setAutoDeclineCPU] = useState(false);
             const [sortConfig, setSortConfig] = useState({ key: 'fWAR', direction: 'desc' });
             const [searchQuery, setSearchQuery] = useState("");
             const [posFilter, setPosFilter] = useState("All");
@@ -1186,17 +1207,49 @@
             };
 
             const handleSignPlayer = (player) => {
-                setSigningPlayer(player);
-                const initialAav = player.cbtValue || player.aav || 740000;
-                setOfferAav(initialAav.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " "));
-                setOfferYears(1);
+                setMyTeam(prev => {
+                    const newPlayer = {...player, fieldSpot: 'Bench', rosterStatus: '26-Man Active', is40Man: true, teamInfo: undefined, originalTeamId: player.teamInfo.id, acquiredVia: 'FA'};
+                    const tx = { type: 'sign', msg: `Signed ${player.name} to a ${player.contractStatus} contract`, logo: `https://www.mlbstatic.com/team-logos/${team.id}.svg` };
+                    return { ...prev, roster: [...prev.roster, newPlayer], transactions: [tx, ...(prev.transactions || [])] };
+                });
+                showNotification(`Signed ${player.name}!`, 'success');
             };
 
-            const myTeamIds = new Set(team.roster?.map(p => String(p.id)) || []);
+            const handleTenderProspects = () => {
+                const prospectsToTender = leagueFaData.filter(p => p.teamInfo.id === team.id && p.faStatus === 'Arb' && !declinedIds.has(p.id.toString()) && !new Set(team.roster.filter(x => x.fieldSpot !== 'Pending FA').map(x => x.id.toString())).has(p.id.toString())).filter(p => {
+                    const exp = (p.expiryType || "").toLowerCase();
+                    return exp.includes('pre-arb') || exp.includes('auto') || p.teamRank || p.top100Rank;
+                });
+                
+                if (prospectsToTender.length === 0) {
+                    return showNotification("No pre-arb players to tender.", "warning");
+                }
+
+                setMyTeam(prev => {
+                    const newRoster = [...prev.roster];
+                    const newTxs = [...(prev.transactions || [])];
+                    
+                    prospectsToTender.forEach(p => {
+                        const newPlayer = {...p, fieldSpot: 'Bench', rosterStatus: '40-Man', is40Man: true, teamInfo: undefined, originalTeamId: team.id, acquiredVia: 'FA', remaining: 1};
+                        newRoster.push(newPlayer);
+                        newTxs.push({ type: 'sign', msg: `Auto-Tendered ${p.name} (Pre-Arb/Prospect)`, logo: `https://www.mlbstatic.com/team-logos/${team.id}.svg` });
+                    });
+                    
+                    return { ...prev, roster: newRoster, transactions: newTxs };
+                });
+                showNotification(`Tendered ${prospectsToTender.length} Prospects!`, 'success');
+            };
+
+            const myTeamIds = new Set(team.roster.filter(p => p.fieldSpot !== 'Pending FA').map(p => p.id.toString()));
             
-            const ufas = leagueFaData.filter(p => p.expiryType === 'UFA' && p.contractStatus !== 'Declined Option' && !myTeamIds.has(String(p.id)));
-            const arbs = leagueFaData.filter(p => p.teamInfo?.id === team.id && p.expiryType === 'Arb' && !myTeamIds.has(String(p.id)));
-            const opts = leagueFaData.filter(p => p.teamInfo?.id === team.id && p.expiryType?.toLowerCase().includes('option') && !myTeamIds.has(String(p.id)));
+            const ufas = leagueFaData.filter(p => {
+                if (myTeamIds.has(p.id.toString())) return false;
+                const isCPU = p.teamInfo.id !== team.id;
+                const isCPUDeclined = autoDeclineCPU && isCPU && (p.faStatus === 'Option' || p.faStatus === 'Arb');
+                return p.faStatus === 'UFA' || declinedIds.has(p.id.toString()) || isCPUDeclined;
+            });
+            const arbs = leagueFaData.filter(p => p.teamInfo.id === team.id && p.faStatus === 'Arb' && !myTeamIds.has(p.id.toString()) && !declinedIds.has(p.id.toString()));
+            const opts = leagueFaData.filter(p => p.teamInfo.id === team.id && p.faStatus === 'Option' && !myTeamIds.has(p.id.toString()) && !declinedIds.has(p.id.toString()));
             let rawList = activeSubTab === 'UFA' ? ufas : activeSubTab === 'Arb' ? arbs : opts;
 
             if (searchQuery) rawList = rawList.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -1273,6 +1326,17 @@
                     <div className="mb-6 flex flex-wrap justify-between items-end shrink-0 max-w-[1600px] mx-auto w-full gap-4">
                         <div><h2 className="text-3xl font-black text-white tracking-tighter">Free Agency Hub</h2></div>
                         <div className="flex gap-2 flex-wrap items-center">
+                            <label className="flex items-center cursor-pointer gap-2 mr-2 bg-slate-900 border border-slate-700 hover:border-slate-500 px-3 py-2 rounded-lg transition-colors shadow-sm">
+                                <div className="relative">
+                                    <input type="checkbox" className="sr-only" checked={autoDeclineCPU} onChange={() => {
+                                        setAutoDeclineCPU(!autoDeclineCPU);
+                                        showNotification(!autoDeclineCPU ? 'CPU Options & Arbs Declined!' : 'CPU Options Restored', 'info');
+                                    }} />
+                                    <div className={`block w-8 h-4 rounded-full transition-colors ${autoDeclineCPU ? 'bg-rose-600' : 'bg-slate-800'}`}></div>
+                                    <div className={`absolute left-1 top-0.5 bg-white w-3 h-3 rounded-full transition-transform ${autoDeclineCPU ? 'transform translate-x-4' : ''}`}></div>
+                                </div>
+                                <span className="text-[10px] uppercase font-black tracking-widest text-slate-300 select-none">Decline CPU</span>
+                            </label>
                             <input type="text" placeholder="Search FA..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white outline-none" />
                             <select value={teamFilter} onChange={e=>setTeamFilter(e.target.value)} className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white outline-none">
                                 <option value="All">All Teams</option>
@@ -1286,6 +1350,11 @@
                                     <button key={tab} onClick={() => setActiveSubTab(tab)} className={`px-5 py-1.5 rounded-md font-bold text-xs transition-colors ${activeSubTab === tab ? 'bg-theme text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>{tab}</button>
                                 ))}
                             </div>
+                            {activeSubTab === 'Arb' && (
+                                <button onClick={handleTenderProspects} className="ml-2 bg-theme hover:brightness-110 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md shadow-theme/20 uppercase tracking-wider">
+                                    Tender Pre-Arb & Prospects
+                                </button>
+                            )}
                         </div>
                     </div>
                     <div className="flex-1 w-full max-w-[1600px] mx-auto overflow-x-auto custom-scrollbar">
@@ -1294,7 +1363,7 @@
                                 <thead className="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-widest border-b border-slate-700/50 cursor-pointer select-none">
                                     <tr>
                                         <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('name')}>Player</th>
-                                        <th className="px-6 py-4 font-bold">Action</th>
+                                        <th className="px-6 py-4 font-bold text-center">Action</th>
                                         <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('team')}>Team</th>
                                         <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('position')}>Pos</th>
                                         <th className="px-6 py-4 font-bold hover-text-theme" onClick={()=>handleSort('age')}>Age</th>
@@ -1318,7 +1387,19 @@
                                                     {p.name}
                                                 </td>
                                                 <td className="px-6 py-3">
-                                                    <button onClick={() => handleSignPlayer(p)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold transition-colors shadow shadow-emerald-900/50">Sign</button>
+                                                    {activeSubTab === 'Options' ? (
+                                                        <div className="flex gap-2 justify-center">
+                                                            <button onClick={() => handleSignPlayer(p)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-[10px] font-bold transition-colors shadow shadow-emerald-900/50 flex-1">Exercise</button>
+                                                            <button onClick={() => setDeclinedIds(prev => new Set(prev).add(p.id.toString()))} className="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1 rounded text-[10px] font-bold transition-colors shadow shadow-rose-900/50 flex-1">Decline</button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex gap-2 justify-center">
+                                                            <button onClick={() => setSigningPlayer(p)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-[10px] font-bold transition-colors shadow shadow-emerald-900/50 w-full">Sign</button>
+                                                            {activeSubTab === 'Arb' && (
+                                                                <button onClick={() => setDeclinedIds(prev => new Set(prev).add(p.id.toString()))} className="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1 rounded text-[10px] font-bold transition-colors shadow shadow-rose-900/50">Non-Tender</button>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-3 font-semibold text-slate-400">{pTeam.abbr}</td>
                                                 <td className="px-6 py-3 font-semibold text-slate-300">{p.position}</td>
@@ -1425,7 +1506,7 @@
 
         const CreatePlayerTool = ({ team, setMyTeam, showNotification }) => {
             const [formData, setFormData] = useState({
-                name: '', age: 22, position: 'SP', origTeam: 'FA', aav: 0, length: 1, expiryType: 'Pre-Arb', optionsLeft: 3, top100Rank: ''
+                name: '', age: 22, position: 'P', origTeam: 'FA', aav: 0, length: 1, expiryType: 'Pre-Arb', optionsLeft: 3, top100Rank: '', contractStatus: ''
             });
 
             const handleSubmit = (e) => {
@@ -1435,7 +1516,7 @@
                 const newPlayer = {
                     id: `custom-${Date.now()}`, name: formData.name, initials: formData.name.split(' ').map(w => w[0]).join('').substring(0, 2),
                     age: parseInt(formData.age), position: formData.position, level: 'MLB', rosterStatus: '26-Man Active', injury: '',
-                    optionsLeft: parseInt(formData.optionsLeft), contractStatus: formData.expiryType, aav: parseInt(formData.aav), remaining: parseInt(formData.length),
+                    optionsLeft: parseInt(formData.optionsLeft), contractStatus: formData.contractStatus || formData.expiryType, aav: parseInt(formData.aav), remaining: parseInt(formData.length),
                     expiryType: formData.expiryType, cbtValue: parseInt(formData.aav), cbtList: [parseInt(formData.aav), parseInt(formData.aav), parseInt(formData.aav), parseInt(formData.aav), parseInt(formData.aav)],
                     teamRank: null, top100Rank: formData.top100Rank ? parseInt(formData.top100Rank) : null, is40Man: true, faStatus: 'Under Contract', stats: {},
                     fieldSpot: ['P','SP','RP'].includes(formData.position) ? 'Bullpen' : 'Bench',
@@ -1444,7 +1525,7 @@
 
                 setMyTeam(prev => ({ ...prev, roster: [...(prev.roster || []), newPlayer] }));
                 showNotification(`Injected ${newPlayer.name} to Majors!`, "success");
-                setFormData({ name: '', age: 22, position: 'SP', origTeam: 'FA', aav: 0, length: 1, expiryType: 'Pre-Arb', optionsLeft: 3, top100Rank: '' });
+                setFormData({ name: '', age: 22, position: 'P', origTeam: 'FA', aav: 0, length: 1, expiryType: 'Pre-Arb', optionsLeft: 3, top100Rank: '', contractStatus: '' });
             };
 
             return (
@@ -1459,7 +1540,7 @@
                             <div>
                                 <label className="text-xs text-slate-400 font-bold tracking-widest uppercase block mb-2">Position</label>
                                 <select value={formData.position} onChange={e=>setFormData({...formData, position: e.target.value})} className="w-full bg-slate-950 border border-slate-700/50 p-3 rounded-lg text-white font-bold outline-none focus-border-theme transition-colors">
-                                    {['SP', 'RP', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    {['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                 </select>
                             </div>
                             <div>
@@ -1469,6 +1550,10 @@
                                     {TEAM_DB_INIT.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                 </select>
                             </div>
+                        </div>
+                        <div>
+                            <label className="text-xs text-slate-400 font-bold tracking-widest uppercase block mb-2 mt-2">Custom Contract Text (Optional)</label>
+                            <input type="text" placeholder="e.g. 7 yr, $150M" value={formData.contractStatus} onChange={e=>setFormData({...formData, contractStatus: e.target.value})} className="w-full bg-slate-950 border border-slate-700/50 p-3 rounded-lg text-white font-bold outline-none focus-border-theme transition-colors" />
                         </div>
                         <button type="submit" className="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl uppercase tracking-widest shadow-lg transition-transform active:scale-95">Inject to Majors</button>
                     </form>
