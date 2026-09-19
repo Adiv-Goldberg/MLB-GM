@@ -572,8 +572,20 @@
 
                     if (action === 'role') {
                         p.fieldSpot = meta;
-                        p.battingOrder = meta === 'Lineup' ? ((roster.filter(x => x.fieldSpot === 'Lineup') || []).length + 1) : null;
-                        p.pitchingOrder = ['Rotation','Bullpen'].includes(meta) ? ((roster.filter(x => x.fieldSpot === meta) || []).length + 1) : null;
+                        if (meta === 'Lineup') {
+                            const used = roster.filter(x => x.fieldSpot === 'Lineup' && x.id !== p.id).map(x => x.battingOrder).filter(Boolean);
+                            let next = 1; while(used.includes(next)) next++;
+                            p.battingOrder = next;
+                            p.pitchingOrder = null;
+                        } else if (['Rotation', 'Bullpen'].includes(meta)) {
+                            const used = roster.filter(x => x.fieldSpot === meta && x.id !== p.id).map(x => x.pitchingOrder).filter(Boolean);
+                            let next = 1; while(used.includes(next)) next++;
+                            p.pitchingOrder = next;
+                            p.battingOrder = null;
+                        } else {
+                            p.battingOrder = null;
+                            p.pitchingOrder = null;
+                        }
                         p.is40Man = true; p.rosterStatus = '26-Man Active'; p.injury = "";
                         showNotification(`Moved ${p.name} to ${meta}`, 'success');
                     } else if (action === 'minors') {
@@ -624,6 +636,10 @@
             const activeCount = lineupPlayers.length + bench.length + rotation.length + bullpen.length;
             const count40 = team.roster?.filter(p => p.is40Man && !p.fieldSpot?.startsWith('IL') && p.fieldSpot !== 'Pending FA').length || 0;
             const payroll = team.roster?.filter(p => p.fieldSpot !== 'Pending FA').reduce((sum, p) => sum + p.cbtValue, 0) + (team.deadMoney || 0);
+
+            // Dynamic Pitching Maps (Extends Infinitely if assigned, always leaves 1 empty drop slot at bottom)
+            const rotSlots = Array.from({length: Math.max(5, Math.max(0, ...rotation.map(p => p.pitchingOrder || 0)) + 1)}, (_, i) => i + 1);
+            const penSlots = Array.from({length: Math.max(4, Math.max(0, ...bullpen.map(p => p.pitchingOrder || 0)) + 1)}, (_, i) => i + 1);
 
             return (
                 <div className="w-full h-full overflow-y-auto custom-scrollbar relative" id="scroll-container">
@@ -744,39 +760,47 @@
                             </div>
 
                             <div className="flex flex-col gap-6">
-                                <div className="glass-panel p-4 rounded-2xl">
-                                    <div className="flex justify-between items-center mb-3 px-1 border-b border-slate-700/50 pb-2">
+                                <div className="glass-panel p-4 rounded-2xl drop-zone transition-colors"
+                                     onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('active'); const tgt = e.dataTransfer.getData('playerId'); if(tgt) handleDrop(tgt, 'Rotation', e.dataTransfer.getData('sourceTeamId')); }}
+                                     onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                                     onDragEnter={(e) => { e.preventDefault(); e.currentTarget.classList.add('active'); }}
+                                     onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('active'); }}>
+                                    <div className="flex justify-between items-center mb-3 px-1 border-b border-slate-700/50 pb-2 pointer-events-none">
                                         <h3 className="text-xs font-bold text-theme uppercase tracking-widest">Starting Rotation</h3>
                                         <span className="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{rotation.length}/5</span>
                                     </div>
                                     <div className="flex flex-col gap-1.5">
-                                        {[1, 2, 3, 4, 5].map(slotNum => {
+                                        {rotSlots.map(slotNum => {
                                             const p = rotation.find(x => x.pitchingOrder === slotNum);
                                             return (
-                                                <div key={slotNum} className="flex items-center gap-2" onDrop={(e) => { e.preventDefault(); handleDrop(e.dataTransfer.getData('playerId'), `Rot-${slotNum}`, e.dataTransfer.getData('sourceTeamId')); }} onDragOver={(e) => e.preventDefault()}>
-                                                    <div className="w-8 text-center font-black text-[10px] text-theme/70">SP{slotNum}</div>
-                                                    <div className="flex-1 bg-slate-900/50 border border-slate-800/80 rounded-lg min-h-[46px]">
-                                                        {p ? <PlayerCard player={p} teamInfo={team} onClick={setActivePlayerModal} /> : <div className="h-full flex items-center justify-center text-[10px] text-slate-600 font-bold uppercase tracking-wider">Empty Spot</div>}
+                                                <div key={slotNum} className="flex items-center gap-2" onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e.dataTransfer.getData('playerId'), `Rot-${slotNum}`, e.dataTransfer.getData('sourceTeamId')); }} onDragOver={(e) => e.preventDefault()}>
+                                                    <div className="w-8 text-center font-black text-[10px] text-theme/70 pointer-events-none">SP{slotNum}</div>
+                                                    <div className="flex-1 bg-slate-900/50 border border-slate-800/80 rounded-lg min-h-[46px] relative z-10">
+                                                        {p ? <PlayerCard player={p} teamInfo={team} onClick={setActivePlayerModal} /> : <div className="h-full flex items-center justify-center text-[10px] text-slate-600 font-bold uppercase tracking-wider pointer-events-none">Empty Spot</div>}
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
                                 </div>
-                                <div className="glass-panel p-4 rounded-2xl flex-1">
-                                    <div className="flex justify-between items-center mb-3 px-1 border-b border-slate-700/50 pb-2">
+                                <div className="glass-panel p-4 rounded-2xl flex-1 drop-zone transition-colors"
+                                     onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('active'); const tgt = e.dataTransfer.getData('playerId'); if(tgt) handleDrop(tgt, 'Bullpen', e.dataTransfer.getData('sourceTeamId')); }}
+                                     onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                                     onDragEnter={(e) => { e.preventDefault(); e.currentTarget.classList.add('active'); }}
+                                     onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('active'); }}>
+                                    <div className="flex justify-between items-center mb-3 px-1 border-b border-slate-700/50 pb-2 pointer-events-none">
                                         <h3 className="text-xs font-bold text-theme uppercase tracking-widest">Bullpen</h3>
-                                        <span className="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{bullpen.length}/8</span>
+                                        <span className="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{bullpen.length}/8+</span>
                                     </div>
                                     <div className="flex flex-col gap-1.5">
-                                        {[1, 2, 3, 4, 5, 6, 7, 8].map(slotNum => {
+                                        {penSlots.map(slotNum => {
                                             const p = bullpen.find(x => x.pitchingOrder === slotNum);
                                             const label = slotNum === 1 ? 'CL' : slotNum <= 3 ? 'SU' : 'RP';
                                             return (
-                                                <div key={slotNum} className="flex items-center gap-2" onDrop={(e) => { e.preventDefault(); handleDrop(e.dataTransfer.getData('playerId'), `Pen-${slotNum}`, e.dataTransfer.getData('sourceTeamId')); }} onDragOver={(e) => e.preventDefault()}>
-                                                    <div className="w-8 text-center font-black text-[10px] text-theme/70">{label}</div>
-                                                    <div className="flex-1 bg-slate-900/50 border border-slate-800/80 rounded-lg min-h-[46px]">
-                                                        {p ? <PlayerCard player={p} teamInfo={team} onClick={setActivePlayerModal} /> : <div className="h-full flex items-center justify-center text-[10px] text-slate-600 font-bold uppercase tracking-wider">Empty Spot</div>}
+                                                <div key={slotNum} className="flex items-center gap-2" onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(e.dataTransfer.getData('playerId'), `Pen-${slotNum}`, e.dataTransfer.getData('sourceTeamId')); }} onDragOver={(e) => e.preventDefault()}>
+                                                    <div className="w-8 text-center font-black text-[10px] text-theme/70 pointer-events-none">{label}</div>
+                                                    <div className="flex-1 bg-slate-900/50 border border-slate-800/80 rounded-lg min-h-[46px] relative z-10">
+                                                        {p ? <PlayerCard player={p} teamInfo={team} onClick={setActivePlayerModal} /> : <div className="h-full flex items-center justify-center text-[10px] text-slate-600 font-bold uppercase tracking-wider pointer-events-none">Empty Spot</div>}
                                                     </div>
                                                 </div>
                                             );
@@ -850,7 +874,16 @@
                     const tIdStr = String(targetZone);
 
                     if (tIdStr.startsWith('Pos-')) {
-                        player.position = tIdStr.split('-')[1];
+                        const newPos = tIdStr.split('-')[1];
+                        player.position = newPos;
+                        if (newPos === 'SP' && player.fieldSpot !== 'Rotation') {
+                            const used = roster.filter(x => x.fieldSpot === 'Rotation').map(x => x.pitchingOrder).filter(Boolean);
+                            let next = 1; while(used.includes(next)) next++;
+                            player.pitchingOrder = next;
+                            player.battingOrder = null;
+                            player.fieldSpot = 'Rotation';
+                            player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
+                        }
                     } else if (tIdStr.startsWith('Bat-')) {
                         const newOrder = parseInt(tIdStr.split('-')[1]);
                         const occupant = roster.find(p => p.fieldSpot === 'Lineup' && p.battingOrder === newOrder);
@@ -877,6 +910,22 @@
                         player.pitchingOrder = newOrder;
                         player.position = 'SP';
                         player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
+                    } else if (tIdStr === 'Bullpen') {
+                        const used = roster.filter(x => x.fieldSpot === 'Bullpen').map(x => x.pitchingOrder).filter(Boolean);
+                        let next = 1; while(used.includes(next)) next++;
+                        player.pitchingOrder = next;
+                        player.battingOrder = null;
+                        player.fieldSpot = 'Bullpen';
+                        player.position = 'RP';
+                        player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
+                    } else if (tIdStr === 'Rotation') {
+                        const used = roster.filter(x => x.fieldSpot === 'Rotation').map(x => x.pitchingOrder).filter(Boolean);
+                        let next = 1; while(used.includes(next)) next++;
+                        player.pitchingOrder = next;
+                        player.battingOrder = null;
+                        player.fieldSpot = 'Rotation';
+                        player.position = 'SP';
+                        player.is40Man = true; player.rosterStatus = '26-Man Active'; player.injury = "";
                     } else if (tIdStr === 'Bench') {
                         player.fieldSpot = 'Bench';
                         player.battingOrder = null;
@@ -891,6 +940,10 @@
             const rotation = team.roster?.filter(p => p.fieldSpot === 'Rotation') || [];
             const bullpen = team.roster?.filter(p => p.fieldSpot === 'Bullpen') || [];
             const il = team.roster?.filter(p => p.fieldSpot !== 'Pending FA' && (p.fieldSpot?.includes('IL') || p.injury?.toLowerCase().includes('injured'))) || [];
+
+            // Dynamic Pitching Maps (Extends Infinitely if assigned, always leaves 1 empty drop slot at bottom)
+            const rotSlots = Array.from({length: Math.max(5, Math.max(0, ...rotation.map(p => p.pitchingOrder || 0)) + 1)}, (_, i) => i + 1);
+            const penSlots = Array.from({length: Math.max(4, Math.max(0, ...bullpen.map(p => p.pitchingOrder || 0)) + 1)}, (_, i) => i + 1);
 
             const displayTxs = useMemo(() => {
                 const txs = [];
@@ -912,9 +965,10 @@
             const FieldDepthBox = ({ label, id, left, top }) => {
                 const posPlayers = activeRoster.filter(p => p.position === id || (id === 'SP' && p.fieldSpot === 'Rotation'));
                 const isSP = id === 'SP';
+                const transform = isSP ? 'translate(-50%, -100%)' : 'translate(-50%, -50%)';
                 return (
                     <div className="absolute border border-theme bg-slate-900 shadow-2xl flex flex-col rounded-md"
-                         style={{ left, top, transform: 'translate(-50%, -50%)', width: '8.5cqw', maxHeight: isSP ? 'none' : '10cqw', overflow: isSP ? 'visible' : 'hidden', zIndex: isSP ? 20 : 10 }}
+                         style={{ left, top, transform, width: '8.5cqw', maxHeight: isSP ? 'none' : '10cqw', overflow: isSP ? 'visible' : 'hidden', zIndex: isSP ? 20 : 10 }}
                          onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Pos-${id}`); }}
                          onDragOver={(e) => e.preventDefault()}
                     >
@@ -980,7 +1034,7 @@
                                 <FieldDepthBox label="CF" id="CF" left="50%" top="12%" />
                                 <FieldDepthBox label="RF" id="RF" left="84%" top="20%" />
                                 <FieldDepthBox label="DH" id="DH" left="14%" top="88%" />
-                                <FieldDepthBox label="SP" id="SP" left="50%" top="64%" />
+                                <FieldDepthBox label="SP" id="SP" left="50%" top="76%" />
                             </div>
                             
                             <div className="h-[18%] bg-rose-950/20 border-t border-rose-900/40 shrink-0 flex items-center px-2 gap-2">
@@ -1042,45 +1096,26 @@
                                 </div>
                             </div>
                             
-                            <div className="w-1/2 h-full flex flex-col">
-                                <div className="bg-emerald-950 text-emerald-400 font-bold uppercase text-center border-b border-slate-800 shrink-0" style={{ fontSize: '1cqw', padding: '0.4cqw' }}>Rotation</div>
-                                <div className="flex flex-col shrink-0" style={{ padding: '0.4cqw', gap: '0.3cqw' }}>
-                                    {[1,2,3,4,5].map(num => {
-                                        const p = rotation.find(x => x.pitchingOrder === num);
-                                        return (
-                                            <div key={num} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden shrink-0"
-                                                 style={{ height: '3.1cqw' }}
-                                                 onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Rot-${num}`); }}
-                                                 onDragOver={(e) => e.preventDefault()}
-                                            >
-                                                <div className="bg-slate-900 text-emerald-500 font-black flex justify-center items-center shrink-0 border-r border-slate-800" style={{ width: '2cqw', height: '100%', fontSize: '0.7cqw' }}>SP{num}</div>
-                                                <div className="flex-1 flex items-center bg-slate-950 h-full">
-                                                    {p ? (
-                                                        <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
-                                                            <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.8cqw', height: '1.8cqw' }} />
-                                                            <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.6cqw' : '0.75cqw' }}>{p.name}</span>
-                                                        </div>
-                                                    ) : <span className="text-slate-600 italic" style={{ fontSize: '0.7cqw', padding: '0 0.4cqw' }}>Empty</span>}
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                                <div className="bg-amber-950 text-amber-400 font-bold uppercase text-center border-y border-slate-800 shrink-0" style={{ fontSize: '0.85cqw', padding: '0.2cqw' }}>Bullpen</div>
-                                <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-slate-900" style={{ padding: '0.4cqw', gap: '0.3cqw' }}>
-                                    {[1,2,3,4,5,6,7,8].map(num => {
+                            <div className="w-1/2 h-full flex flex-col border-l border-slate-800">
+                                <div className="bg-amber-950 text-amber-400 font-bold uppercase text-center border-b border-slate-800 shrink-0" style={{ fontSize: '1cqw', padding: '0.4cqw' }}>Bullpen</div>
+                                <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-slate-900 drop-zone transition-colors" style={{ padding: '0.4cqw', gap: '0.3cqw' }}
+                                     onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('active'); const tgt = e.dataTransfer.getData('playerId'); if(tgt) handleFieldDrop(tgt, 'Bullpen'); }}
+                                     onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                                     onDragEnter={(e) => { e.preventDefault(); e.currentTarget.classList.add('active'); }}
+                                     onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('active'); }}>
+                                    {penSlots.map(num => {
                                         const p = bullpen.find(x => x.pitchingOrder === num);
                                         const label = num === 1 ? 'CL' : num <= 3 ? 'SU' : 'RP';
                                         return (
-                                            <div key={num} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden shrink-0"
+                                            <div key={num} className="border border-slate-800 rounded flex flex-row items-center bg-slate-950 overflow-hidden shrink-0 relative z-10"
                                                  style={{ height: '3.1cqw' }}
-                                                 onDrop={(e) => { e.preventDefault(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Pen-${num}`); }}
+                                                 onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleFieldDrop(e.dataTransfer.getData('playerId'), `Pen-${num}`); }}
                                                  onDragOver={(e) => e.preventDefault()}
                                             >
-                                                <div className="bg-slate-900 text-amber-500 font-black flex justify-center items-center shrink-0 border-r border-slate-800" style={{ width: '2cqw', height: '100%', fontSize: '0.75cqw' }}>{label}</div>
-                                                <div className="flex-1 flex items-center bg-slate-950 h-full">
+                                                <div className="bg-slate-900 text-amber-500 font-black flex justify-center items-center shrink-0 border-r border-slate-800 pointer-events-none" style={{ width: '2cqw', height: '100%', fontSize: '0.75cqw' }}>{label}</div>
+                                                <div className="flex-1 flex items-center bg-slate-950 h-full pointer-events-none">
                                                     {p ? (
-                                                        <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
+                                                        <div draggable="true" onDragStart={(e) => e.dataTransfer.setData('playerId', String(p.id))} className="w-full h-full flex items-center cursor-pointer hover:bg-slate-900 text-slate-200 pointer-events-auto" style={{ padding: '0 0.4cqw', gap: '0.4cqw' }}>
                                                             <PlayerImage player={p} teamInfo={team} className="rounded-full object-cover shrink-0 border border-slate-700 bg-slate-800" style={{ width: '1.8cqw', height: '1.8cqw' }} />
                                                             <span className="truncate font-semibold" style={{ fontSize: p.name.length > 14 ? '0.6cqw' : '0.75cqw' }}>{p.name}</span>
                                                         </div>
